@@ -26,18 +26,11 @@
             android:layout_centerVertical="true"
             android:layout_toEndOf="@id/device_image"/>
         <Button
-            android:id="@+id/select"
-            android:layout_width="96dp"
-            android:layout_height="wrap_content"
-            android:text="Select"
-            android:layout_centerVertical="true"
-            android:layout_alignParentEnd="true"/>
-        <Button
             android:id="@+id/connect"
             android:layout_width="96dp"
             android:layout_height="wrap_content"
             android:text="Pair"
-            android:layout_toLeftOf="@id/select"
+            android:layout_alignParentEnd="true"
             android:layout_centerVertical="true"/>
 
     </RelativeLayout>

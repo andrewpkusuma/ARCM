@@ -24,6 +24,10 @@
             android:orientation="vertical"
             android:layout_gravity="center">
 
+            <android.support.v7.widget.RecyclerView
+                android:id="@+id/device_list"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"></android.support.v7.widget.RecyclerView>
             <LinearLayout
                 android:id="@+id/start_screen"
                 android:layout_width="wrap_content"
@@ -51,8 +55,8 @@
             android:id="@+id/scan"
             android:layout_width="150dp"
             android:layout_height="wrap_content"
-            android:textOn="Scan: ON"
-            android:textOff="Scan: OFF"
+            android:textOn="Scanning..."
+            android:textOff="Re-Scan"
             android:textSize="18dp"
             android:padding="18dp"
             android:layout_marginTop="18dp"
@@ -61,7 +65,7 @@
             android:id="@+id/toggle_socket"
             android:layout_width="180dp"
             android:layout_height="wrap_content"
-            android:textOn="Socket: OPEN"
+            android:textOn="Socket: Open"
             android:textOff="Socket: Close"
             android:textSize="18dp"
             android:padding="18dp"

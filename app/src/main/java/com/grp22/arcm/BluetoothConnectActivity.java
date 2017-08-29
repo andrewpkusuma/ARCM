@@ -1,30 +1,15 @@
 package com.grp22.arcm;
 
-import android.app.Activity;
-import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothServerSocket;
-import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.os.Handler;
-import android.os.Message;
-import android.support.v4.app.FragmentActivity;
+import android.os.Bundle;
 import android.support.v4.app.FragmentManager;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
-import android.util.Log;
-import android.view.View;
-import android.widget.ArrayAdapter;
-import android.widget.TextView;
 import android.widget.Toast;
-
-import java.io.IOException;
-import java.util.UUID;
 
 public class BluetoothConnectActivity extends AppCompatActivity implements DeviceListFragment.OnFragmentInteractionListener {
 
@@ -32,6 +17,8 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
     private BluetoothAdapter BTAdapter;
     public static Intent connectIntent;
     private ResponseReceiver receiver;
+
+    private boolean isRegistered = false;
 
     public static final int REQUEST_BLUETOOTH = 420;
 
@@ -49,11 +36,24 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
         FragmentManager fragmentManager = getSupportFragmentManager();
         mDeviceListFragment = DeviceListFragment.newInstance(BTAdapter);
         fragmentManager.beginTransaction().replace(R.id.container, mDeviceListFragment).commit();
+    }
 
-        IntentFilter filter = new IntentFilter(ResponseReceiver.ACTION_RESP);
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        IntentFilter filter = new IntentFilter(ResponseReceiver.CONNECT_SUCCESS);
         filter.addCategory(Intent.CATEGORY_DEFAULT);
         receiver = new ResponseReceiver();
         registerReceiver(receiver, filter);
+        isRegistered = true;
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (isRegistered)
+            unregisterReceiver(receiver);
     }
 
     @Override
@@ -80,13 +80,15 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
     }
 
     public class ResponseReceiver extends BroadcastReceiver {
-        public static final String ACTION_RESP =
+        public static final String CONNECT_SUCCESS =
                 "com.grp22.arcm.CONNECTION_SUCCESSFUL";
 
         @Override
         public void onReceive(Context context, Intent intent) {
             Toast.makeText(getApplicationContext(), "Connection Successful", Toast.LENGTH_SHORT).show();
             Intent begin = new Intent(getApplicationContext(), MainActivity.class);
+            unregisterReceiver(receiver);
+            isRegistered = false;
             startActivity(begin);
         }
     }

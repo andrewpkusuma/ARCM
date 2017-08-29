@@ -11,14 +11,11 @@ import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CompoundButton;
 import android.widget.FrameLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
@@ -27,12 +24,10 @@ import java.util.ArrayList;
 public class DeviceListFragment extends Fragment {
 
     private static BluetoothAdapter BTAdapter;
-    private RecyclerView mRecyclerView;
     private ArrayList<DeviceItem> deviceItemList;
     private DeviceItemRecyclerViewAdapter mAdapter;
     private FrameLayout placeholder;
     private RecyclerView deviceItemListView;
-    private TextView noDevice;
     private ToggleButton scan, socket;
 
     private final BroadcastReceiver bcReciever = new BroadcastReceiver() {
@@ -44,11 +39,9 @@ public class DeviceListFragment extends Fragment {
                 DeviceItem newDevice = new DeviceItem(device.getName(), device.getAddress(), device.getBondState());
                 // Add it to our adapter
                 mAdapter.add(newDevice);
-                refreshListDisplay(getView());
             }
             if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action) && scan.isChecked()) {
                 scan.setChecked(false);
-                refreshListDisplay(getView());
             }
         }
     };
@@ -81,24 +74,14 @@ public class DeviceListFragment extends Fragment {
         final View view = inflater.inflate(R.layout.fragment_device_list, container, false);
 
         placeholder = (FrameLayout) view.findViewById(R.id.placeholder);
-        deviceItemListView = new RecyclerView(getContext());
+        deviceItemListView = (RecyclerView) view.findViewById(R.id.device_list);
         deviceItemListView.setLayoutManager(new LinearLayoutManager(getContext()) {
-            public boolean supportsPredictiveItemAnimations() {
-                return true;
-            }
         });
         deviceItemListView.setBackground(ContextCompat.getDrawable(getContext(), R.drawable.border));
         deviceItemListView.setAdapter(mAdapter);
-        deviceItemListView.setVisibility(View.INVISIBLE);
-        placeholder.addView(deviceItemListView);
-        noDevice = new TextView(getContext());
-        noDevice.setText("No devices currently found");
-        noDevice.setTextSize(18);
-        noDevice.setGravity(Gravity.CENTER);
-        noDevice.setVisibility(View.INVISIBLE);
-        placeholder.addView(noDevice);
 
         scan = (ToggleButton) view.findViewById(R.id.scan);
+        scan.setText("scan");
         scan.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 IntentFilter filter = new IntentFilter();
@@ -113,8 +96,6 @@ public class DeviceListFragment extends Fragment {
                     getActivity().registerReceiver(bcReciever, filter);
                     BTAdapter.startDiscovery();
                     placeholder.removeView(view.findViewById(R.id.start_screen));
-                    noDevice.setVisibility(View.VISIBLE);
-                    refreshListDisplay(view);
                 } else {
                     getActivity().unregisterReceiver(bcReciever);
                     BTAdapter.cancelDiscovery();
@@ -127,7 +108,6 @@ public class DeviceListFragment extends Fragment {
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (isChecked) {
                     if (scan.isChecked()) {
-                        BTAdapter.cancelDiscovery();
                         scan.setChecked(false);
                     }
                     int selectedPosition = mAdapter.getSelectedPosition();
@@ -162,17 +142,6 @@ public class DeviceListFragment extends Fragment {
     public void onDetach() {
         super.onDetach();
         mListener = null;
-    }
-
-    public void refreshListDisplay(View view) {
-        placeholder = (FrameLayout) view.findViewById(R.id.placeholder);
-        if (deviceItemList.isEmpty()) {
-            deviceItemListView.setVisibility(View.INVISIBLE);
-            noDevice.setVisibility(View.VISIBLE);
-        } else {
-            deviceItemListView.setVisibility(View.VISIBLE);
-            noDevice.setVisibility(View.INVISIBLE);
-        }
     }
 
     public interface OnFragmentInteractionListener {

@@ -2,15 +2,13 @@ package com.grp22.arcm;
 
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
-import android.graphics.drawable.Drawable;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.CardView;
-import android.support.v7.widget.PagerSnapHelper;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -44,7 +42,6 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
         public TextView deviceDetails;
         public ImageView deviceImage;
         public Button connect;
-        public Button select;
 
         DeviceItemViewHolder(View v) {
             super(v);
@@ -52,7 +49,6 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
             deviceDetails = (TextView) v.findViewById(R.id.device_details);
             deviceImage = (ImageView) v.findViewById(R.id.device_image);
             connect = (Button) v.findViewById(R.id.connect);
-            select = (Button) v.findViewById(R.id.select);
         }
     }
 
@@ -65,26 +61,32 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
 
     @Override
     public void onBindViewHolder(final DeviceItemViewHolder holder, final int position) {
-        holder.deviceDetails.setText(deviceItems.get(position).getDeviceName() + "\n" + deviceItems.get(position).getAddress());
-        holder.deviceImage.setImageResource(R.drawable.ic_devices_black_48px);
-        if (position != selectedPosition) {
-            holder.select.setText("Select");
-            holder.select.setEnabled(true);
+        Log.d("Ini", "kepanggil");
+        final int currentPosition = holder.getAdapterPosition();
+        if (currentPosition == selectedPosition) {
+            holder.card.setBackgroundResource(android.R.color.holo_blue_light);
         }
         else {
-            holder.select.setText("Selected");
-            holder.select.setEnabled(false);
+            holder.card.setCardBackgroundColor(ContextCompat.getColor(context, R.color.cardview_light_background));
+            holder.card.setRadius(context.getResources().getDimension(R.dimen.cardview_default_radius));
         }
-        holder.select.setOnClickListener(new View.OnClickListener() {
+        holder.card.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                selectedPosition = position;
-                selectedAddress = deviceItems.get(selectedPosition).getAddress();
-                holder.select.setText("Selected");
-                holder.select.setEnabled(false);
-                notifyDataSetChanged();
-            }
+                Log.d("Adapter position", Integer.toString(holder.getAdapterPosition()));
+                if (currentPosition != selectedPosition) {
+                    selectedPosition = currentPosition;
+                    selectedAddress = deviceItems.get(selectedPosition).getAddress();
+                    Log.d("Selected position", Integer.toString(selectedPosition));
+                    notifyItemChanged(currentPosition);
+                } else {
+                    clearSelection();
+                }}
         });
+
+        holder.deviceDetails.setText(deviceItems.get(position).getDeviceName() + "\n" + deviceItems.get(position).getAddress());
+        holder.deviceImage.setImageResource(R.drawable.ic_devices_black_48px);
+
         if (deviceItems.get(position).getStatus() == BluetoothDevice.BOND_NONE) {
             holder.connect.setText("Pair");
             holder.connect.setEnabled(true);
@@ -113,13 +115,19 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
     }
 
     public void clear() {
-        deviceItems.clear();
-        notifyDataSetChanged();
+        int size = deviceItems.size();
+        for (int i = 0; i < size; i++) {
+            deviceItems.remove(i);
+            notifyDataSetChanged();
+        }
     }
 
-    public void clearSelected() {
-        this.selectedPosition = -1;
-        this.selectedAddress = null;
+    public void clearSelection() {
+        int previousSelection = selectedPosition;
+        selectedPosition = -1;
+        selectedAddress = null;
+        Log.d("Selected position", Integer.toString(selectedPosition));
+        notifyItemChanged(previousSelection);
     }
 
     public int getSelectedPosition() {
