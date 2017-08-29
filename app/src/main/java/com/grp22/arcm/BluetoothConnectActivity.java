@@ -85,7 +85,7 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
 
         @Override
         public void onReceive(Context context, Intent intent) {
-            Toast.makeText(getApplicationContext(), "Connection Successful", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getApplicationContext(), "Connection successful", Toast.LENGTH_SHORT).show();
             Intent begin = new Intent(getApplicationContext(), MainActivity.class);
             unregisterReceiver(receiver);
             isRegistered = false;

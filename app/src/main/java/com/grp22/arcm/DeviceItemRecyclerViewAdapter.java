@@ -19,12 +19,13 @@ import java.util.List;
  * Created by Andrew on 28/8/17.
  */
 
-public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceItemRecyclerViewAdapter.DeviceItemViewHolder>{
+public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceItemRecyclerViewAdapter.DeviceItemViewHolder> {
 
     private List<DeviceItem> deviceItems;
     private Context context;
     private int selectedPosition = -1;
     private String selectedAddress = null;
+    private boolean isSelectionEnabled = true;
 
     public DeviceItemRecyclerViewAdapter(List<DeviceItem> deviceItems, Context context) {
         this.deviceItems = deviceItems;
@@ -34,22 +35,6 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
     @Override
     public void onAttachedToRecyclerView(RecyclerView recyclerView) {
         super.onAttachedToRecyclerView(recyclerView);
-    }
-
-    public class DeviceItemViewHolder extends RecyclerView.ViewHolder {
-
-        public CardView card;
-        public TextView deviceDetails;
-        public ImageView deviceImage;
-        public Button connect;
-
-        DeviceItemViewHolder(View v) {
-            super(v);
-            card = (CardView) v.findViewById(R.id.card);
-            deviceDetails = (TextView) v.findViewById(R.id.device_details);
-            deviceImage = (ImageView) v.findViewById(R.id.device_image);
-            connect = (Button) v.findViewById(R.id.connect);
-        }
     }
 
     @Override
@@ -65,8 +50,7 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
         final int currentPosition = holder.getAdapterPosition();
         if (currentPosition == selectedPosition) {
             holder.card.setBackgroundResource(android.R.color.holo_blue_light);
-        }
-        else {
+        } else {
             holder.card.setCardBackgroundColor(ContextCompat.getColor(context, R.color.cardview_light_background));
             holder.card.setRadius(context.getResources().getDimension(R.dimen.cardview_default_radius));
         }
@@ -74,14 +58,17 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
             @Override
             public void onClick(View view) {
                 Log.d("Adapter position", Integer.toString(holder.getAdapterPosition()));
-                if (currentPosition != selectedPosition) {
-                    selectedPosition = currentPosition;
-                    selectedAddress = deviceItems.get(selectedPosition).getAddress();
-                    Log.d("Selected position", Integer.toString(selectedPosition));
-                    notifyItemChanged(currentPosition);
-                } else {
-                    clearSelection();
-                }}
+                if (isSelectionEnabled) {
+                    if (currentPosition != selectedPosition) {
+                        selectedPosition = currentPosition;
+                        selectedAddress = deviceItems.get(selectedPosition).getAddress();
+                        Log.d("Selected position", Integer.toString(selectedPosition));
+                        notifyItemChanged(currentPosition);
+                    } else {
+                        clearSelection();
+                    }
+                }
+            }
         });
 
         holder.deviceDetails.setText(deviceItems.get(position).getDeviceName() + "\n" + deviceItems.get(position).getAddress());
@@ -90,8 +77,7 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
         if (deviceItems.get(position).getStatus() == BluetoothDevice.BOND_NONE) {
             holder.connect.setText("Pair");
             holder.connect.setEnabled(true);
-        }
-        else {
+        } else {
             holder.connect.setText("Paired");
             holder.connect.setEnabled(false);
         }
@@ -99,7 +85,7 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
             @Override
             public void onClick(View view) {
                 DeviceListFragment.mListener.startPairing(deviceItems.get(position).getAddress());
-                notifyDataSetChanged();
+                notifyItemChanged(position);
             }
         });
     }
@@ -107,6 +93,11 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
     @Override
     public int getItemCount() {
         return deviceItems.size();
+    }
+
+    @Override
+    public long getItemId(int position) {
+        return position;
     }
 
     public void add(DeviceItem deviceItem) {
@@ -128,6 +119,7 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
         selectedAddress = null;
         Log.d("Selected position", Integer.toString(selectedPosition));
         notifyItemChanged(previousSelection);
+        notifyItemChanged(selectedPosition);
     }
 
     public int getSelectedPosition() {
@@ -136,5 +128,25 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
 
     public String getSelectedAddress() {
         return selectedAddress;
+    }
+
+    public void toggleSelection(boolean toggle) {
+        isSelectionEnabled = toggle;
+    }
+
+    public class DeviceItemViewHolder extends RecyclerView.ViewHolder {
+
+        public CardView card;
+        public TextView deviceDetails;
+        public ImageView deviceImage;
+        public Button connect;
+
+        DeviceItemViewHolder(View v) {
+            super(v);
+            card = (CardView) v.findViewById(R.id.card);
+            deviceDetails = (TextView) v.findViewById(R.id.device_details);
+            deviceImage = (ImageView) v.findViewById(R.id.device_image);
+            connect = (Button) v.findViewById(R.id.connect);
+        }
     }
 }

@@ -85,7 +85,6 @@ public class BluetoothConnectService extends IntentService {
 
     @Override
     public void onDestroy() {
-        Log.d("Sampe", "sini kemudian");
         super.onDestroy();
         try {
             mmServerSocket.close();

@@ -6,14 +6,17 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
-import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CompoundButton;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.ToggleButton;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -33,7 +36,6 @@ public class MainActivity extends AppCompatActivity {
         stopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Log.d("Sampe", "sini dulu");
                 mService.stop();
             }
         });
@@ -46,6 +48,27 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        final Button refreshMap = (Button) findViewById(R.id.refresh_map);
+
+        ToggleButton toggleRefresh = (ToggleButton) findViewById(R.id.toggle_refresh);
+        toggleRefresh.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean isChecked) {
+                refreshMap.setEnabled(!isChecked);
+            }
+        });
+
+        ImageButton forward = (ImageButton) findViewById(R.id.forward);
+        forward.setOnTouchListener(new ControllerListener("forward"));
+
+        ImageButton left = (ImageButton) findViewById(R.id.left);
+        left.setOnTouchListener(new ControllerListener("left"));
+
+        ImageButton right = (ImageButton) findViewById(R.id.right);
+        right.setOnTouchListener(new ControllerListener("right"));
+
+        ImageButton rotate = (ImageButton) findViewById(R.id.rotate);
+        rotate.setOnTouchListener(new ControllerListener("rotate"));
     }
 
     @Override
@@ -85,8 +108,7 @@ public class MainActivity extends AppCompatActivity {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (ResponseReceiver.DISCONNECT_SUCCESS.equals(action)) {
-                Log.d("Sampe", "sini akhirnya");
-                Toast.makeText(getApplicationContext(), "Disconnection Successful", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getApplicationContext(), "Disconnection successful", Toast.LENGTH_SHORT).show();
             }
             if (ResponseReceiver.STRING_RECEIVED.equals(action)) {
                 String message = intent.getStringExtra("message");
@@ -111,4 +133,23 @@ public class MainActivity extends AppCompatActivity {
             mBound = false;
         }
     };
+
+    private class ControllerListener implements View.OnTouchListener {
+        String command;
+
+        public ControllerListener(String command) {
+            this.command = command;
+        }
+
+        @Override
+        public boolean onTouch(View view, MotionEvent event) {
+            if (event.getAction() == MotionEvent.ACTION_UP ||
+                    event.getAction() == MotionEvent.ACTION_CANCEL) {
+                mService.sendToOutputStream(command);
+            } else if (event.getAction() == MotionEvent.ACTION_UP) {
+                mService.sendToOutputStream("stop");
+            }
+            return true;
+        }
+    }
 }

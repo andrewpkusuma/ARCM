@@ -114,12 +114,13 @@ public class DeviceListFragment extends Fragment {
                     if (selectedPosition < 0) {
                         Toast.makeText(getContext(), "Please select a device first", Toast.LENGTH_SHORT).show();
                         socket.setChecked(false);
-                    }
-                    else {
+                    } else {
                         mListener.startConnection(mAdapter.getSelectedAddress());
+                        mAdapter.toggleSelection(false);
                     }
                 } else {
                     mListener.stopConnection();
+                    mAdapter.toggleSelection(true);
                 }
             }
         });
@@ -146,7 +147,9 @@ public class DeviceListFragment extends Fragment {
 
     public interface OnFragmentInteractionListener {
         void startPairing(String address);
+
         void startConnection(String address);
+
         void stopConnection();
     }
 }
