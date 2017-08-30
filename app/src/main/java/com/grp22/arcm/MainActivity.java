@@ -1,5 +1,6 @@
 package com.grp22.arcm;
 
+import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -7,6 +8,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
 import android.view.MotionEvent;
@@ -25,6 +27,8 @@ public class MainActivity extends AppCompatActivity {
     BluetoothConnectService mService;
     boolean mBound = false;
     private boolean isRegistered = false;
+    private ProgressDialog progressDialog;
+    private MainActivity activity;
 
     private ServiceConnection mConnection = new ServiceConnection() {
 
@@ -46,6 +50,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        activity = this;
         setContentView(R.layout.activity_main);
 
         status = (TextView) findViewById(R.id.status);
@@ -90,6 +96,13 @@ public class MainActivity extends AppCompatActivity {
 
         ImageButton rotate = (ImageButton) findViewById(R.id.rotate);
         rotate.setOnTouchListener(new ControllerListener("rotate"));
+
+        progressDialog = new ProgressDialog(activity);
+        progressDialog.setTitle("Please Wait");
+        progressDialog.setMessage("Connection interrupted. Reconnecting...");
+        progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        progressDialog.setIndeterminate(true);
+        progressDialog.setCanceledOnTouchOutside(false);
     }
 
     @Override
@@ -99,8 +112,10 @@ public class MainActivity extends AppCompatActivity {
         bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
 
         IntentFilter filter = new IntentFilter();
-        filter.addAction(ResponseReceiver.DISCONNECT_SUCCESS);
-        filter.addAction(ResponseReceiver.STRING_RECEIVED);
+        filter.addAction(BluetoothConnectService.CONNECTION_INTERRUPTED);
+        filter.addAction(BluetoothConnectService.CONNECTION_RECOVERED);
+        filter.addAction(BluetoothConnectService.DISCONNECTED);
+        filter.addAction(BluetoothConnectService.STRING_RECEIVED);
         filter.addCategory(Intent.CATEGORY_DEFAULT);
         receiver = new ResponseReceiver();
         registerReceiver(receiver, filter);
@@ -121,22 +136,31 @@ public class MainActivity extends AppCompatActivity {
 
 
     public class ResponseReceiver extends BroadcastReceiver {
-        public static final String DISCONNECT_SUCCESS =
-                "com.grp22.arcm.DISCONNECTION_SUCCESSFUL";
-        public static final String STRING_RECEIVED =
-                "com.grp22.arcm.STRING_RECEIVED";
-
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if (ResponseReceiver.DISCONNECT_SUCCESS.equals(action)) {
-                Toast.makeText(getApplicationContext(), "Successfully disconnected", Toast.LENGTH_SHORT).show();
-                Intent begin = new Intent(getApplicationContext(), BluetoothConnectActivity.class);
-                startActivity(begin);
-            }
-            if (ResponseReceiver.STRING_RECEIVED.equals(action)) {
-                String message = intent.getStringExtra("message");
-                status.setText(message);
+            switch (action) {
+                case BluetoothConnectService.CONNECTION_INTERRUPTED:
+                    progressDialog.show();
+                    break;
+                case BluetoothConnectService.CONNECTION_RECOVERED:
+                    new Handler().postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            progressDialog.dismiss();
+                            Toast.makeText(getApplicationContext(), "Connection recovered", Toast.LENGTH_SHORT).show();
+                        }
+                    }, 2000);
+                    break;
+                case BluetoothConnectService.DISCONNECTED:
+                    Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_SHORT).show();
+                    Intent begin = new Intent(getApplicationContext(), BluetoothConnectActivity.class);
+                    startActivity(begin);
+                    break;
+                case BluetoothConnectService.STRING_RECEIVED:
+                    String message = intent.getStringExtra("message");
+                    status.setText(message);
+                    break;
             }
         }
     }

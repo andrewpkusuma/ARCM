@@ -19,11 +19,19 @@ import java.util.UUID;
 
 public class BluetoothConnectService extends IntentService {
 
+    private BluetoothDevice device;
     private BluetoothSocket socket;
     private InputStream mmInStream;
     private OutputStream mmOutStream;
+    private Intent broadcastIntent;
+    private boolean tryReconnecting = true;
 
-    private boolean isStopped = false;
+    public static final String CONNECT_SUCCESS = "com.grp22.arcm.CONNECTION_SUCCESSFUL";
+    public static final String CONNECT_FAIL = "com.grp22.arcm.CONNECTION_FAIL";
+    public static final String CONNECTION_INTERRUPTED = "com.grp22.arcm.CONNECTION_INTERRUPTED";
+    public static final String CONNECTION_RECOVERED = "com.grp22.arcm.CONNECTION_RECOVERED";
+    public static final String DISCONNECTED = "com.grp22.arcm.DISCONNECTED";
+    public static final String STRING_RECEIVED = "com.grp22.arcm.STRING_RECEIVED";
 
     // Binder given to clients
     private final IBinder mBinder = new LocalBinder();
@@ -48,7 +56,7 @@ public class BluetoothConnectService extends IntentService {
     protected void onHandleIntent(Intent intent) {
         // Use a temporary object that is later assigned to mmServerSocket
         // because mmServerSocket is final.
-        BluetoothDevice device = intent.getParcelableExtra("device");
+        device = intent.getParcelableExtra("device");
         BluetoothSocket tmp = null;
         try {
             // MY_UUID is the app's UUID string, also used by the client code.
@@ -56,6 +64,7 @@ public class BluetoothConnectService extends IntentService {
         } catch (IOException e) {
             Log.e("Error: ", "Socket's listen() method failed", e);
         }
+        Log.d("Awalnya", "dari sini");
         socket = tmp;
         if (socket != null) {
             while (true) {
@@ -63,15 +72,15 @@ public class BluetoothConnectService extends IntentService {
                     socket.connect();
                 } catch (Exception e) {
                     Log.e("Error: ", "Socket's accept() method failed", e);
-                    Intent broadcastIntent = new Intent();
-                    broadcastIntent.setAction(BluetoothConnectActivity.ResponseReceiver.CONNECT_FAIL);
+                    broadcastIntent = new Intent();
+                    broadcastIntent.setAction(CONNECT_FAIL);
                     broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
                     sendBroadcast(broadcastIntent);
                     break;
                 }
                 if (socket != null) {
                     Intent broadcastIntent = new Intent();
-                    broadcastIntent.setAction(BluetoothConnectActivity.ResponseReceiver.CONNECT_SUCCESS);
+                    broadcastIntent.setAction(CONNECT_SUCCESS);
                     broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
                     sendBroadcast(broadcastIntent);
                     setupStream();
@@ -85,13 +94,19 @@ public class BluetoothConnectService extends IntentService {
     public void onDestroy() {
         super.onDestroy();
         try {
-            socket.close();
             if (mmInStream != null)
                 mmInStream.close();
             if (mmOutStream != null)
                 mmOutStream.close();
+            socket.close();
         } catch (IOException e) {
             Log.e("Error", "Could not close the connect socket", e);
+        } finally {
+            Log.d("Akhirnya", "ke sini");
+            broadcastIntent = new Intent();
+            broadcastIntent.setAction(DISCONNECTED);
+            broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+            sendBroadcast(broadcastIntent);
         }
     }
 
@@ -110,6 +125,7 @@ public class BluetoothConnectService extends IntentService {
             Log.e("error", "Error occurred when creating output stream", e);
         }
 
+        Log.d("Lalu", "ke sini");
         mmInStream = tmpIn;
         mmOutStream = tmpOut;
 
@@ -120,6 +136,8 @@ public class BluetoothConnectService extends IntentService {
         byte[] mmBuffer = new byte[1024];
         int numBytes; // bytes returned from read()
 
+        Log.d("Macet", "di sini");
+
         // Keep listening to the InputStream until an exception occurs.
         while (true) {
             try {
@@ -128,17 +146,44 @@ public class BluetoothConnectService extends IntentService {
                 String message = new String(mmBuffer, 0, numBytes);
                 Log.d("Message -> ", message);
                 // Send the obtained bytes to the UI activity.
-                Intent broadcastIntent = new Intent();
-                broadcastIntent.setAction(MainActivity.ResponseReceiver.STRING_RECEIVED);
+                broadcastIntent = new Intent();
+                broadcastIntent.setAction(STRING_RECEIVED);
                 broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
                 broadcastIntent.putExtra("message", message);
                 sendBroadcast(broadcastIntent);
             } catch (IOException e) {
-                Intent broadcastIntent = new Intent();
-                broadcastIntent.setAction(MainActivity.ResponseReceiver.DISCONNECT_SUCCESS);
-                broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
-                sendBroadcast(broadcastIntent);
-                break;
+                Log.d("Bisa", "ke sini");
+                if (tryReconnecting) {
+                    broadcastIntent = new Intent();
+                    broadcastIntent.setAction(CONNECTION_INTERRUPTED);
+                    broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                    sendBroadcast(broadcastIntent);
+                    try {
+                        mmInStream.close();
+                        mmOutStream.close();
+                        socket = null;
+                        socket = device.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
+                        socket.connect();
+                    } catch (IOException exception) {
+                        broadcastIntent = new Intent();
+                        broadcastIntent.setAction(DISCONNECTED);
+                        broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                        sendBroadcast(broadcastIntent);
+                        break;
+                    }
+                    if (socket != null) {
+                        Log.d("Balik", "ke atas deh");
+                        broadcastIntent = new Intent();
+                        broadcastIntent.setAction(CONNECTION_RECOVERED);
+                        broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                        sendBroadcast(broadcastIntent);
+                        setupStream();
+                        break;
+                    }
+                    break;
+                } else {
+                    break;
+                }
             }
         }
     }
@@ -152,6 +197,11 @@ public class BluetoothConnectService extends IntentService {
     }
 
     public void stop() {
-        onDestroy();
+        tryReconnecting = false;
+        try {
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

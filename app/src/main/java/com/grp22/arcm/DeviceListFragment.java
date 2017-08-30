@@ -70,14 +70,16 @@ public class DeviceListFragment extends Fragment {
                              Bundle savedInstanceState) {
         final View view = inflater.inflate(R.layout.fragment_device_list, container, false);
 
+        deviceItemList = new ArrayList<>();
+        mAdapter = new DeviceItemRecyclerViewAdapter(deviceItemList, getContext(), this);
+        mAdapter.setHasStableIds(true);
+
         placeholder = (FrameLayout) view.findViewById(R.id.placeholder);
         deviceItemListView = (RecyclerView) view.findViewById(R.id.device_list);
         deviceItemListView.setLayoutManager(new LinearLayoutManager(getContext()) {
         });
         deviceItemListView.setBackground(ContextCompat.getDrawable(getContext(), R.drawable.border));
         deviceItemListView.setAdapter(mAdapter);
-
-        final DeviceListFragment fragment = this;
 
         scan = (ToggleButton) view.findViewById(R.id.scan);
         scan.setText("scan");
@@ -88,8 +90,6 @@ public class DeviceListFragment extends Fragment {
                 filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
                 if (isChecked) {
                     deviceItemList = new ArrayList<>();
-                    mAdapter = new DeviceItemRecyclerViewAdapter(deviceItemList, getContext(), fragment);
-                    mAdapter.setHasStableIds(true);
                     mAdapter.clear();
                     deviceItemListView.setAdapter(mAdapter);
                     getActivity().registerReceiver(bcReciever, filter);
@@ -106,13 +106,13 @@ public class DeviceListFragment extends Fragment {
         connect.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                    if (scan.isChecked()) {
-                        scan.setChecked(false);
-                    }
-                    mAdapter.toggleSelection(false);
-                    connect.setEnabled(false);
-                    mListener.startConnection(mAdapter.getSelectedAddress());
-                    Toast.makeText(getContext(), "Connecting...", Toast.LENGTH_SHORT).show();
+                if (scan.isChecked()) {
+                    scan.setChecked(false);
+                }
+                mAdapter.toggleSelection(false);
+                connect.setEnabled(false);
+                mListener.startConnection(mAdapter.getSelectedAddress());
+                Toast.makeText(getContext(), "Connecting...", Toast.LENGTH_SHORT).show();
             }
         });
         connect.setEnabled(false);
@@ -143,6 +143,7 @@ public class DeviceListFragment extends Fragment {
 
     public interface OnFragmentInteractionListener {
         void startPairing(String address);
+
         void startConnection(String address);
     }
 }

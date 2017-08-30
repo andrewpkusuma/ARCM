@@ -42,8 +42,8 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
         super.onStart();
 
         IntentFilter filter = new IntentFilter();
-        filter.addAction(ResponseReceiver.CONNECT_SUCCESS);
-        filter.addAction(ResponseReceiver.CONNECT_FAIL);
+        filter.addAction(BluetoothConnectService.CONNECT_SUCCESS);
+        filter.addAction(BluetoothConnectService.CONNECT_FAIL);
         filter.addCategory(Intent.CATEGORY_DEFAULT);
         receiver = new ResponseReceiver();
         registerReceiver(receiver, filter);
@@ -76,20 +76,15 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
     }
 
     public class ResponseReceiver extends BroadcastReceiver {
-        public static final String CONNECT_SUCCESS =
-                "com.grp22.arcm.CONNECTION_SUCCESSFUL";
-        public static final String CONNECT_FAIL =
-                "com.grp22.arcm.CONNECTION_FAIL";
-
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if (ResponseReceiver.CONNECT_SUCCESS.equals(action)) {
+            if (action.equals(BluetoothConnectService.CONNECT_SUCCESS)) {
                 Toast.makeText(getApplicationContext(), "Successfully connected", Toast.LENGTH_SHORT).show();
                 Intent begin = new Intent(getApplicationContext(), MainActivity.class);
                 startActivity(begin);
             }
-            if (ResponseReceiver.CONNECT_FAIL.equals(action)) {
+            if (action.equals(BluetoothConnectService.CONNECT_FAIL)) {
                 Toast.makeText(getApplicationContext(), "Fail to connect", Toast.LENGTH_SHORT).show();
                 mDeviceListFragment.toggleConnect(true);
             }
