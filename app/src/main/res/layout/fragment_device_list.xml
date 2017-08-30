@@ -38,14 +38,14 @@
                     android:layout_width="72dp"
                     android:layout_height="72dp"
                     android:scaleType="fitXY"
-                    android:src="@drawable/ic_bluetooth_black_48px"
+                    android:src="@drawable/ic_bluetooth_searching_black_48px"
                     android:layout_gravity="center"
-                    android:paddingBottom="6dp"/>
+                    android:paddingBottom="12dp"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Click the toggle button to scan for devices"
-                    android:textSize="12dp"
+                    android:textSize="18dp"
                     android:layout_gravity="center"/>
 
             </LinearLayout>
@@ -61,12 +61,11 @@
             android:padding="18dp"
             android:layout_marginTop="18dp"
             android:layout_gravity="center"/>
-        <ToggleButton
-            android:id="@+id/toggle_socket"
+        <Button
+            android:id="@+id/connect"
             android:layout_width="180dp"
             android:layout_height="wrap_content"
-            android:textOn="Close Socket"
-            android:textOff="Open Socket"
+            android:text="Connect"
             android:textSize="18dp"
             android:padding="18dp"
             android:layout_marginTop="18dp"

@@ -14,6 +14,7 @@ import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.FrameLayout;
 import android.widget.Toast;
@@ -24,11 +25,12 @@ import java.util.ArrayList;
 public class DeviceListFragment extends Fragment {
 
     private static BluetoothAdapter BTAdapter;
-    private ArrayList<DeviceItem> deviceItemList;
+    public ArrayList<DeviceItem> deviceItemList;
     private DeviceItemRecyclerViewAdapter mAdapter;
     private FrameLayout placeholder;
     private RecyclerView deviceItemListView;
-    private ToggleButton scan, socket;
+    private ToggleButton scan;
+    private Button connect;
 
     private final BroadcastReceiver bcReciever = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
@@ -61,11 +63,6 @@ public class DeviceListFragment extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        deviceItemList = new ArrayList<>();
-
-        mAdapter = new DeviceItemRecyclerViewAdapter(deviceItemList, getContext());
-        mAdapter.setHasStableIds(true);
     }
 
     @Override
@@ -80,6 +77,8 @@ public class DeviceListFragment extends Fragment {
         deviceItemListView.setBackground(ContextCompat.getDrawable(getContext(), R.drawable.border));
         deviceItemListView.setAdapter(mAdapter);
 
+        final DeviceListFragment fragment = this;
+
         scan = (ToggleButton) view.findViewById(R.id.scan);
         scan.setText("scan");
         scan.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
@@ -88,11 +87,11 @@ public class DeviceListFragment extends Fragment {
                 filter.addAction(BluetoothDevice.ACTION_FOUND);
                 filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
                 if (isChecked) {
-                    if (socket.isChecked()) {
-                        socket.setChecked(false);
-                        mListener.stopConnection();
-                    }
+                    deviceItemList = new ArrayList<>();
+                    mAdapter = new DeviceItemRecyclerViewAdapter(deviceItemList, getContext(), fragment);
+                    mAdapter.setHasStableIds(true);
                     mAdapter.clear();
+                    deviceItemListView.setAdapter(mAdapter);
                     getActivity().registerReceiver(bcReciever, filter);
                     BTAdapter.startDiscovery();
                     placeholder.removeView(view.findViewById(R.id.start_screen));
@@ -103,27 +102,20 @@ public class DeviceListFragment extends Fragment {
             }
         });
 
-        socket = (ToggleButton) view.findViewById(R.id.toggle_socket);
-        socket.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                if (isChecked) {
+        connect = (Button) view.findViewById(R.id.connect);
+        connect.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
                     if (scan.isChecked()) {
                         scan.setChecked(false);
                     }
-                    int selectedPosition = mAdapter.getSelectedPosition();
-                    if (selectedPosition < 0) {
-                        Toast.makeText(getContext(), "Please select a device first", Toast.LENGTH_SHORT).show();
-                        socket.setChecked(false);
-                    } else {
-                        mListener.startConnection(mAdapter.getSelectedAddress());
-                        mAdapter.toggleSelection(false);
-                    }
-                } else {
-                    mListener.stopConnection();
-                    mAdapter.toggleSelection(true);
-                }
+                    mAdapter.toggleSelection(false);
+                    connect.setEnabled(false);
+                    mListener.startConnection(mAdapter.getSelectedAddress());
+                    Toast.makeText(getContext(), "Connecting...", Toast.LENGTH_SHORT).show();
             }
         });
+        connect.setEnabled(false);
 
         // Inflate the layout for this fragment
         return view;
@@ -145,11 +137,12 @@ public class DeviceListFragment extends Fragment {
         mListener = null;
     }
 
+    public void toggleConnect(boolean isEnabled) {
+        connect.setEnabled(isEnabled);
+    }
+
     public interface OnFragmentInteractionListener {
         void startPairing(String address);
-
         void startConnection(String address);
-
-        void stopConnection();
     }
 }

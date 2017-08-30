@@ -15,7 +15,6 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
 
     private DeviceListFragment mDeviceListFragment;
     private BluetoothAdapter BTAdapter;
-    public static Intent connectIntent;
     private ResponseReceiver receiver;
 
     private boolean isRegistered = false;
@@ -42,7 +41,9 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
     protected void onStart() {
         super.onStart();
 
-        IntentFilter filter = new IntentFilter(ResponseReceiver.CONNECT_SUCCESS);
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(ResponseReceiver.CONNECT_SUCCESS);
+        filter.addAction(ResponseReceiver.CONNECT_FAIL);
         filter.addCategory(Intent.CATEGORY_DEFAULT);
         receiver = new ResponseReceiver();
         registerReceiver(receiver, filter);
@@ -69,27 +70,29 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
     public void startConnection(String address) {
         if (BTAdapter.isDiscovering())
             BTAdapter.cancelDiscovery();
-        connectIntent = new Intent(this, BluetoothConnectService.class);
-        connectIntent.putExtra(BluetoothConnectService.PARAM_ADDRESS, address);
+        Intent connectIntent = new Intent(this, BluetoothConnectService.class);
+        connectIntent.putExtra("device", BTAdapter.getRemoteDevice(address));
         startService(connectIntent);
-    }
-
-    @Override
-    public void stopConnection() {
-        stopService(connectIntent);
     }
 
     public class ResponseReceiver extends BroadcastReceiver {
         public static final String CONNECT_SUCCESS =
                 "com.grp22.arcm.CONNECTION_SUCCESSFUL";
+        public static final String CONNECT_FAIL =
+                "com.grp22.arcm.CONNECTION_FAIL";
 
         @Override
         public void onReceive(Context context, Intent intent) {
-            Toast.makeText(getApplicationContext(), "Connection successful", Toast.LENGTH_SHORT).show();
-            Intent begin = new Intent(getApplicationContext(), MainActivity.class);
-            unregisterReceiver(receiver);
-            isRegistered = false;
-            startActivity(begin);
+            String action = intent.getAction();
+            if (ResponseReceiver.CONNECT_SUCCESS.equals(action)) {
+                Toast.makeText(getApplicationContext(), "Successfully connected", Toast.LENGTH_SHORT).show();
+                Intent begin = new Intent(getApplicationContext(), MainActivity.class);
+                startActivity(begin);
+            }
+            if (ResponseReceiver.CONNECT_FAIL.equals(action)) {
+                Toast.makeText(getApplicationContext(), "Fail to connect", Toast.LENGTH_SHORT).show();
+                mDeviceListFragment.toggleConnect(true);
+            }
         }
     }
 }

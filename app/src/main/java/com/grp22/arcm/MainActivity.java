@@ -24,6 +24,24 @@ public class MainActivity extends AppCompatActivity {
     private TextView status;
     BluetoothConnectService mService;
     boolean mBound = false;
+    private boolean isRegistered = false;
+
+    private ServiceConnection mConnection = new ServiceConnection() {
+
+        @Override
+        public void onServiceConnected(ComponentName className,
+                                       IBinder service) {
+            // We've bound to LocalService, cast the IBinder and get LocalService instance
+            BluetoothConnectService.LocalBinder binder = (BluetoothConnectService.LocalBinder) service;
+            mService = binder.getService();
+            mBound = true;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName arg0) {
+            mBound = false;
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,7 +54,10 @@ public class MainActivity extends AppCompatActivity {
         stopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                Toast.makeText(getApplicationContext(), "Disconnecting...", Toast.LENGTH_SHORT).show();
                 mService.stop();
+                unbindService(mConnection);
+                mBound = false;
             }
         });
 
@@ -83,12 +104,14 @@ public class MainActivity extends AppCompatActivity {
         filter.addCategory(Intent.CATEGORY_DEFAULT);
         receiver = new ResponseReceiver();
         registerReceiver(receiver, filter);
+        isRegistered = true;
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        unregisterReceiver(receiver);
+        if (isRegistered)
+            unregisterReceiver(receiver);
         // Unbind from the service
         if (mBound) {
             unbindService(mConnection);
@@ -103,12 +126,13 @@ public class MainActivity extends AppCompatActivity {
         public static final String STRING_RECEIVED =
                 "com.grp22.arcm.STRING_RECEIVED";
 
-
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (ResponseReceiver.DISCONNECT_SUCCESS.equals(action)) {
-                Toast.makeText(getApplicationContext(), "Disconnection successful", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getApplicationContext(), "Successfully disconnected", Toast.LENGTH_SHORT).show();
+                Intent begin = new Intent(getApplicationContext(), BluetoothConnectActivity.class);
+                startActivity(begin);
             }
             if (ResponseReceiver.STRING_RECEIVED.equals(action)) {
                 String message = intent.getStringExtra("message");
@@ -116,23 +140,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
-
-    private ServiceConnection mConnection = new ServiceConnection() {
-
-        @Override
-        public void onServiceConnected(ComponentName className,
-                                       IBinder service) {
-            // We've bound to LocalService, cast the IBinder and get LocalService instance
-            BluetoothConnectService.LocalBinder binder = (BluetoothConnectService.LocalBinder) service;
-            mService = binder.getService();
-            mBound = true;
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName arg0) {
-            mBound = false;
-        }
-    };
 
     private class ControllerListener implements View.OnTouchListener {
         String command;
@@ -143,12 +150,10 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public boolean onTouch(View view, MotionEvent event) {
-            if (event.getAction() == MotionEvent.ACTION_UP ||
-                    event.getAction() == MotionEvent.ACTION_CANCEL) {
+            if (event.getAction() == MotionEvent.ACTION_DOWN)
                 mService.sendToOutputStream(command);
-            } else if (event.getAction() == MotionEvent.ACTION_UP) {
+            else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL)
                 mService.sendToOutputStream("stop");
-            }
             return true;
         }
     }

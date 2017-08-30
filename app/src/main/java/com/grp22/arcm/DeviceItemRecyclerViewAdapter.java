@@ -23,13 +23,15 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
 
     private List<DeviceItem> deviceItems;
     private Context context;
-    private int selectedPosition = -1;
+    private static int selectedPosition = -1;
     private String selectedAddress = null;
     private boolean isSelectionEnabled = true;
+    private DeviceListFragment fragment;
 
-    public DeviceItemRecyclerViewAdapter(List<DeviceItem> deviceItems, Context context) {
+    public DeviceItemRecyclerViewAdapter(List<DeviceItem> deviceItems, Context context, DeviceListFragment fragment) {
         this.deviceItems = deviceItems;
         this.context = context;
+        this.fragment = fragment;
     }
 
     @Override
@@ -47,8 +49,8 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
     @Override
     public void onBindViewHolder(final DeviceItemViewHolder holder, final int position) {
         Log.d("Ini", "kepanggil");
-        final int currentPosition = holder.getAdapterPosition();
-        if (currentPosition == selectedPosition) {
+        Log.d("Cur Adapter position", Integer.toString(position));
+        if (holder.getAdapterPosition() == selectedPosition) {
             holder.card.setBackgroundResource(android.R.color.holo_blue_light);
         } else {
             holder.card.setCardBackgroundColor(ContextCompat.getColor(context, R.color.cardview_light_background));
@@ -57,15 +59,16 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
         holder.card.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Log.d("Adapter position", Integer.toString(holder.getAdapterPosition()));
                 if (isSelectionEnabled) {
-                    if (currentPosition != selectedPosition) {
-                        selectedPosition = currentPosition;
+                    if (selectedPosition != holder.getAdapterPosition()) {
+                        notifyItemChanged(selectedPosition);
+                        Log.d("Notified", Integer.toString(selectedPosition));
+                        Log.d("Adapter position", Integer.toString(position));
+                        selectedPosition = holder.getAdapterPosition();
                         selectedAddress = deviceItems.get(selectedPosition).getAddress();
                         Log.d("Selected position", Integer.toString(selectedPosition));
-                        notifyItemChanged(currentPosition);
-                    } else {
-                        clearSelection();
+                        fragment.toggleConnect(true);
+                        notifyItemChanged(selectedPosition);
                     }
                 }
             }
@@ -86,6 +89,7 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
             public void onClick(View view) {
                 DeviceListFragment.mListener.startPairing(deviceItems.get(position).getAddress());
                 notifyItemChanged(position);
+                notifyDataSetChanged();
             }
         });
     }
@@ -101,25 +105,20 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
     }
 
     public void add(DeviceItem deviceItem) {
+        for (DeviceItem d : deviceItems)
+            if (d.getAddress().equals(deviceItem.getAddress()))
+                return;
         deviceItems.add(deviceItem);
         notifyDataSetChanged();
     }
 
     public void clear() {
-        int size = deviceItems.size();
-        for (int i = 0; i < size; i++) {
-            deviceItems.remove(i);
-            notifyDataSetChanged();
-        }
-    }
-
-    public void clearSelection() {
-        int previousSelection = selectedPosition;
         selectedPosition = -1;
-        selectedAddress = null;
         Log.d("Selected position", Integer.toString(selectedPosition));
-        notifyItemChanged(previousSelection);
-        notifyItemChanged(selectedPosition);
+        selectedAddress = null;
+        deviceItems.clear();
+        fragment.toggleConnect(false);
+        notifyDataSetChanged();
     }
 
     public int getSelectedPosition() {

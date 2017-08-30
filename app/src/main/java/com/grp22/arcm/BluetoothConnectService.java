@@ -1,8 +1,7 @@
 package com.grp22.arcm;
 
 import android.app.IntentService;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothServerSocket;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
 import android.os.Binder;
@@ -19,13 +18,12 @@ import java.util.UUID;
  */
 
 public class BluetoothConnectService extends IntentService {
-    public static final String PARAM_ADDRESS = "";
 
-    private final BluetoothServerSocket mmServerSocket;
     private BluetoothSocket socket;
     private InputStream mmInStream;
     private OutputStream mmOutStream;
-    private byte[] mmBuffer;
+
+    private boolean isStopped = false;
 
     // Binder given to clients
     private final IBinder mBinder = new LocalBinder();
@@ -44,41 +42,41 @@ public class BluetoothConnectService extends IntentService {
 
     public BluetoothConnectService() {
         super("BluetoothConnectService");
-        // Use a temporary object that is later assigned to mmServerSocket
-        // because mmServerSocket is final.
-        BluetoothServerSocket tmp = null;
-        try {
-            // MY_UUID is the app's UUID string, also used by the client code.
-            BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-            tmp = adapter.listenUsingInsecureRfcommWithServiceRecord("com.grp22.arcm", UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
-        } catch (IOException e) {
-            Log.e("Error: ", "Socket's listen() method failed", e);
-        }
-        mmServerSocket = tmp;
     }
 
     @Override
     protected void onHandleIntent(Intent intent) {
-        String deviceAddress = intent.getStringExtra(PARAM_ADDRESS);
-        socket = null;
-        while (true) {
-            try {
-                socket = mmServerSocket.accept();
-                if (!socket.getRemoteDevice().getAddress().equals(deviceAddress)) {
-                    socket.close();
-                    continue;
+        // Use a temporary object that is later assigned to mmServerSocket
+        // because mmServerSocket is final.
+        BluetoothDevice device = intent.getParcelableExtra("device");
+        BluetoothSocket tmp = null;
+        try {
+            // MY_UUID is the app's UUID string, also used by the client code.
+            tmp = device.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
+        } catch (IOException e) {
+            Log.e("Error: ", "Socket's listen() method failed", e);
+        }
+        socket = tmp;
+        if (socket != null) {
+            while (true) {
+                try {
+                    socket.connect();
+                } catch (Exception e) {
+                    Log.e("Error: ", "Socket's accept() method failed", e);
+                    Intent broadcastIntent = new Intent();
+                    broadcastIntent.setAction(BluetoothConnectActivity.ResponseReceiver.CONNECT_FAIL);
+                    broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                    sendBroadcast(broadcastIntent);
+                    break;
                 }
-            } catch (Exception e) {
-                Log.e("Error: ", "Socket's accept() method failed", e);
-                break;
-            }
-            if (socket != null) {
-                Intent broadcastIntent = new Intent();
-                broadcastIntent.setAction(BluetoothConnectActivity.ResponseReceiver.CONNECT_SUCCESS);
-                broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
-                sendBroadcast(broadcastIntent);
-                setupStream();
-                break;
+                if (socket != null) {
+                    Intent broadcastIntent = new Intent();
+                    broadcastIntent.setAction(BluetoothConnectActivity.ResponseReceiver.CONNECT_SUCCESS);
+                    broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                    sendBroadcast(broadcastIntent);
+                    setupStream();
+                    break;
+                }
             }
         }
     }
@@ -87,18 +85,13 @@ public class BluetoothConnectService extends IntentService {
     public void onDestroy() {
         super.onDestroy();
         try {
-            mmServerSocket.close();
+            socket.close();
             if (mmInStream != null)
                 mmInStream.close();
             if (mmOutStream != null)
                 mmOutStream.close();
         } catch (IOException e) {
             Log.e("Error", "Could not close the connect socket", e);
-        } finally {
-            Intent broadcastIntent = new Intent();
-            broadcastIntent.setAction(MainActivity.ResponseReceiver.DISCONNECT_SUCCESS);
-            broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
-            sendBroadcast(broadcastIntent);
         }
     }
 
@@ -124,7 +117,7 @@ public class BluetoothConnectService extends IntentService {
     }
 
     public void receiveFromInputStream() {
-        mmBuffer = new byte[1024];
+        byte[] mmBuffer = new byte[1024];
         int numBytes; // bytes returned from read()
 
         // Keep listening to the InputStream until an exception occurs.
@@ -141,7 +134,10 @@ public class BluetoothConnectService extends IntentService {
                 broadcastIntent.putExtra("message", message);
                 sendBroadcast(broadcastIntent);
             } catch (IOException e) {
-                Log.d("error", "Input stream was disconnected", e);
+                Intent broadcastIntent = new Intent();
+                broadcastIntent.setAction(MainActivity.ResponseReceiver.DISCONNECT_SUCCESS);
+                broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                sendBroadcast(broadcastIntent);
                 break;
             }
         }
