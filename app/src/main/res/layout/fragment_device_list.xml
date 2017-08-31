@@ -35,17 +35,18 @@
                 android:orientation="vertical"
                 android:layout_gravity="center">
                 <ImageView
-                    android:layout_width="72dp"
-                    android:layout_height="72dp"
+                    android:layout_width="66dp"
+                    android:layout_height="66dp"
                     android:scaleType="fitXY"
                     android:src="@drawable/ic_bluetooth_searching_black_48px"
                     android:layout_gravity="center"
-                    android:paddingBottom="12dp"/>
+                    android:paddingBottom="12dp"
+                    android:alpha=".5"/>
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Click the toggle button to scan for devices"
-                    android:textSize="18dp"
+                    android:textSize="12dp"
                     android:layout_gravity="center"/>
 
             </LinearLayout>

@@ -1,20 +1,30 @@
 package com.grp22.arcm;
 
+import android.app.AlertDialog;
+import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.preference.PreferenceManager;
+import android.support.annotation.NonNull;
+import android.support.v4.app.DialogFragment;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CompoundButton;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -24,7 +34,7 @@ public class MainActivity extends AppCompatActivity {
 
     private ResponseReceiver receiver;
     private TextView status;
-    BluetoothConnectService mService;
+    private BluetoothConnectService mService;
     boolean mBound = false;
     private boolean isRegistered = false;
     private ProgressDialog progressDialog;
@@ -56,7 +66,7 @@ public class MainActivity extends AppCompatActivity {
 
         status = (TextView) findViewById(R.id.status);
 
-        Button stopButton = (Button) findViewById(R.id.stop_connection);
+        Button stopButton = (Button) findViewById(R.id.stop);
         stopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -67,11 +77,12 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        Button sendText = (Button) findViewById(R.id.send_text);
+        Button sendText = (Button) findViewById(R.id.send_predefined_text);
         sendText.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                mService.sendToOutputStream("Lorem Ipsum");
+                SendTextDialogFragment dialogFragment = SendTextDialogFragment.newInstance();
+                dialogFragment.show(getSupportFragmentManager(), "Send Text");
             }
         });
 
@@ -134,6 +145,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void sendMessage(String message) {
+        mService.sendToOutputStream(message);
+    }
 
     public class ResponseReceiver extends BroadcastReceiver {
         @Override
@@ -179,6 +193,79 @@ public class MainActivity extends AppCompatActivity {
             else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL)
                 mService.sendToOutputStream("stop");
             return true;
+        }
+    }
+
+    public static class SendTextDialogFragment extends DialogFragment implements View.OnClickListener {
+
+        private SharedPreferences sharedPreferences;
+        private Button f1Button;
+        private EditText f1Input;
+        private Button f2Button;
+        private EditText f2Input;
+
+        public SendTextDialogFragment() {
+        }
+
+        public static SendTextDialogFragment newInstance() {
+            return new SendTextDialogFragment();
+        }
+
+        @NonNull
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+            // setup dialog: buttons, title etc
+            AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(getActivity())
+                    .setTitle("Send Text")
+                    .setNeutralButton("Done",
+                            new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int whichButton) {
+                                    dialog.dismiss();
+                                }
+                            }
+                    );
+
+            LayoutInflater inflater = getActivity().getLayoutInflater();
+            View view = inflater.inflate(R.layout.fragment_send_text_dialog, null);
+
+            sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getActivity());
+
+            f1Button = (Button) view.findViewById(R.id.f1_send);
+            f1Input = (EditText) view.findViewById(R.id.f1_input);
+            f1Input.setText(sharedPreferences.getString("f1", ""));
+            f1Button.setOnClickListener(this);
+
+            f2Button = (Button) view.findViewById(R.id.f2_send);
+            f2Input = (EditText) view.findViewById(R.id.f2_input);
+            f2Input.setText(sharedPreferences.getString("f2", ""));
+            f2Button.setOnClickListener(this);
+
+            dialogBuilder.setView(view);
+
+            return dialogBuilder.create();
+        }
+
+        @Override
+        public void onClick(View view) {
+            switch (view.getId()) {
+                case R.id.f1_send:
+                    Log.d("Tolong kirim", "ya");
+                    ((MainActivity) getActivity()).sendMessage(f1Input.getText().toString());
+                    break;
+                case R.id.f2_send:
+                    Log.d("Mohon kirim", "ya");
+                    ((MainActivity) getActivity()).sendMessage(f2Input.getText().toString());
+                    break;
+            }
+        }
+
+        @Override
+        public void onDismiss(DialogInterface dialog) {
+            super.onDismiss(dialog);
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putString("f1", f1Input.getText().toString());
+            editor.putString("f2", f2Input.getText().toString());
+            editor.commit();
         }
     }
 }
