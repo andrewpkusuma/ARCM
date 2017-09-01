@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
+import android.os.SystemClock;
 import android.util.Log;
 
 import java.io.IOException;
@@ -25,6 +26,7 @@ public class BluetoothConnectService extends IntentService {
     private OutputStream mmOutStream;
     private Intent broadcastIntent;
     private boolean tryReconnecting = true;
+    private Thread reconnectThread;
 
     public static final String CONNECT_SUCCESS = "com.grp22.arcm.CONNECTION_SUCCESSFUL";
     public static final String CONNECT_FAIL = "com.grp22.arcm.CONNECTION_FAIL";
@@ -153,33 +155,41 @@ public class BluetoothConnectService extends IntentService {
                 sendBroadcast(broadcastIntent);
             } catch (IOException e) {
                 Log.d("Bisa", "ke sini");
+                e.printStackTrace();
                 if (tryReconnecting) {
                     broadcastIntent = new Intent();
                     broadcastIntent.setAction(CONNECTION_INTERRUPTED);
                     broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
                     sendBroadcast(broadcastIntent);
-                    try {
-                        mmInStream.close();
-                        mmOutStream.close();
-                        socket = null;
-                        socket = device.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
-                        socket.connect();
-                    } catch (IOException exception) {
-                        broadcastIntent = new Intent();
-                        broadcastIntent.setAction(DISCONNECTED);
-                        broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
-                        sendBroadcast(broadcastIntent);
-                        break;
-                    }
-                    if (socket != null) {
-                        Log.d("Balik", "ke atas deh");
-                        broadcastIntent = new Intent();
-                        broadcastIntent.setAction(CONNECTION_RECOVERED);
-                        broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
-                        sendBroadcast(broadcastIntent);
-                        setupStream();
-                        break;
-                    }
+                    reconnectThread = new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Log.d("Aku", "jalan");
+                            SystemClock.sleep(5000);
+                            try {
+                                mmInStream.close();
+                                mmOutStream.close();
+                                socket = null;
+                                socket = device.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
+                                socket.connect();
+                            } catch (IOException exception) {
+                                try {
+                                    socket.close();
+                                } catch (IOException error) {
+                                    error.printStackTrace();
+                                }
+                            }
+                            if (socket.isConnected()) {
+                                Log.d("Balik", "ke atas deh");
+                                broadcastIntent = new Intent();
+                                broadcastIntent.setAction(CONNECTION_RECOVERED);
+                                broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                                sendBroadcast(broadcastIntent);
+                                setupStream();
+                            }
+                        }
+                    });
+                    reconnectThread.start();
                     break;
                 } else {
                     break;

@@ -158,13 +158,8 @@ public class MainActivity extends AppCompatActivity {
                     progressDialog.show();
                     break;
                 case BluetoothConnectService.CONNECTION_RECOVERED:
-                    new Handler().postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            progressDialog.dismiss();
-                            Toast.makeText(getApplicationContext(), "Connection recovered", Toast.LENGTH_SHORT).show();
-                        }
-                    }, 2000);
+                    progressDialog.dismiss();
+                    Toast.makeText(getApplicationContext(), "Connection recovered", Toast.LENGTH_SHORT).show();
                     break;
                 case BluetoothConnectService.DISCONNECTED:
                     Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_SHORT).show();

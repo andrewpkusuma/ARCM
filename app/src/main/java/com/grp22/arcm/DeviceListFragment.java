@@ -31,6 +31,7 @@ public class DeviceListFragment extends Fragment {
     private RecyclerView deviceItemListView;
     private ToggleButton scan;
     private Button connect;
+    private DeviceListFragment fragment = this;
 
     private final BroadcastReceiver bcReciever = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
@@ -40,7 +41,9 @@ public class DeviceListFragment extends Fragment {
                 // Create a new device item
                 DeviceItem newDevice = new DeviceItem(device.getName(), device.getAddress(), device.getBondState());
                 // Add it to our adapter
+                mAdapter.toggleSelection(false);
                 mAdapter.add(newDevice);
+                mAdapter.toggleSelection(true);
             }
             if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action) && scan.isChecked()) {
                 scan.setChecked(false);
@@ -89,7 +92,6 @@ public class DeviceListFragment extends Fragment {
                 filter.addAction(BluetoothDevice.ACTION_FOUND);
                 filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
                 if (isChecked) {
-                    deviceItemList = new ArrayList<>();
                     mAdapter.clear();
                     deviceItemListView.setAdapter(mAdapter);
                     getActivity().registerReceiver(bcReciever, filter);
