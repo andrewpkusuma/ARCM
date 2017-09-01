@@ -27,6 +27,7 @@ public class BluetoothConnectService extends IntentService {
     private Intent broadcastIntent;
     private boolean tryReconnecting = true;
     private Thread reconnectThread;
+    private Thread stopThread;
 
     public static final String CONNECT_SUCCESS = "com.grp22.arcm.CONNECTION_SUCCESSFUL";
     public static final String CONNECT_FAIL = "com.grp22.arcm.CONNECTION_FAIL";
@@ -161,11 +162,22 @@ public class BluetoothConnectService extends IntentService {
                     broadcastIntent.setAction(CONNECTION_INTERRUPTED);
                     broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
                     sendBroadcast(broadcastIntent);
+                    stopThread = new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            SystemClock.sleep(10000);
+                            if (!socket.isConnected()) {
+                                Log.d("Aku", "hidup");
+                                onDestroy();
+                            }
+                        }
+                    });
+                    stopThread.start();
                     reconnectThread = new Thread(new Runnable() {
                         @Override
                         public void run() {
                             Log.d("Aku", "jalan");
-                            SystemClock.sleep(5000);
+                            SystemClock.sleep(1000);
                             try {
                                 mmInStream.close();
                                 mmOutStream.close();
@@ -185,6 +197,7 @@ public class BluetoothConnectService extends IntentService {
                                 broadcastIntent.setAction(CONNECTION_RECOVERED);
                                 broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
                                 sendBroadcast(broadcastIntent);
+                                stopThread.interrupt();
                                 setupStream();
                             }
                         }
