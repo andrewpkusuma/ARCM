@@ -114,6 +114,12 @@ public class MainActivity extends AppCompatActivity {
         ImageButton rotateRight = (ImageButton) findViewById(R.id.rotate_right);
         rotateRight.setOnTouchListener(new ControllerListener("rotateRight"));
 
+        Button exploreArena = (Button) findViewById(R.id.explore_arena);
+        exploreArena.setOnTouchListener(new ControllerListener("beginExploration"));
+
+        Button fastestPath = (Button) findViewById(R.id.show_fastest_path);
+        fastestPath.setOnTouchListener(new ControllerListener("beginFastestPath"));
+
         progressDialog = new ProgressDialog(activity);
         progressDialog.setTitle("Connection Interrupted");
         progressDialog.setMessage("Attempting to reconnect. Please wait...");
@@ -270,7 +276,7 @@ public class MainActivity extends AppCompatActivity {
             SharedPreferences.Editor editor = sharedPreferences.edit();
             editor.putString("f1", f1Input.getText().toString());
             editor.putString("f2", f2Input.getText().toString());
-            editor.commit();
+            editor.apply();
         }
     }
 }

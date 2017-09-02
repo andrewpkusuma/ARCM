@@ -12,9 +12,7 @@
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
         android:layout_centerHorizontal="true"
-        android:layout_marginBottom="6dp"
-        android:layout_marginTop="6dp"
-        android:padding="12dp">
+        android:padding="6dp">
 
         <TextView
             android:id="@+id/status"
@@ -51,17 +49,46 @@
         android:layout_height="600dp"
         android:layout_below="@id/header"
         android:layout_centerHorizontal="true"
+        android:layout_marginBottom="6dp"
+        android:layout_marginTop="6dp"
         android:background="@drawable/border_white_bg"/>
+    <RelativeLayout
+        android:id="@+id/explore_container"
+        android:layout_width="450dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/map"
+        android:layout_centerHorizontal="true">
+
+        <Button
+            android:id="@+id/explore_arena"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:drawableStart="@drawable/ic_explore_black_48px"
+            android:gravity="start|center_vertical"
+            android:text=" Explore Arena"/>
+        <Button
+            android:id="@+id/show_fastest_path"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:drawableStart="@drawable/ic_flash_on_black_48px"
+            android:gravity="start|center_vertical"
+            android:text=" Show Fastest Path"/>
+
+    </RelativeLayout>
     <RelativeLayout
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
-        android:layout_below="@id/map"
+        android:layout_below="@id/explore_container"
         android:layout_centerHorizontal="true">
 
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="fill_parent"
-            android:layout_marginStart="12dp"
+            android:layout_marginStart="6dp"
             android:gravity="center_vertical"
             android:orientation="vertical">
 
@@ -143,7 +170,7 @@
             android:layout_width="wrap_content"
             android:layout_height="fill_parent"
             android:layout_alignParentEnd="true"
-            android:layout_marginEnd="12dp"
+            android:layout_marginEnd="6dp"
             android:gravity="center_vertical"
             android:orientation="vertical">
 
