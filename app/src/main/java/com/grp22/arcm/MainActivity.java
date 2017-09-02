@@ -115,10 +115,20 @@ public class MainActivity extends AppCompatActivity {
         rotateRight.setOnTouchListener(new ControllerListener("rotateRight"));
 
         Button exploreArena = (Button) findViewById(R.id.explore_arena);
-        exploreArena.setOnTouchListener(new ControllerListener("beginExploration"));
+        exploreArena.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mService.sendToOutputStream("beginExploration");
+            }
+        });
 
         Button fastestPath = (Button) findViewById(R.id.show_fastest_path);
-        fastestPath.setOnTouchListener(new ControllerListener("beginFastestPath"));
+        fastestPath.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mService.sendToOutputStream("beginFastestPath");
+            }
+        });
 
         progressDialog = new ProgressDialog(activity);
         progressDialog.setTitle("Connection Interrupted");
