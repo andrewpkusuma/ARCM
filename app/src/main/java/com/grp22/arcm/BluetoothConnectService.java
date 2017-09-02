@@ -26,6 +26,7 @@ public class BluetoothConnectService extends IntentService {
     private OutputStream mmOutStream;
     private Intent broadcastIntent;
     private boolean tryReconnecting = true;
+    private boolean isStopped = false;
     private Runnable reconnectRunnable;
     private Thread reconnectThread;
 
@@ -87,6 +88,7 @@ public class BluetoothConnectService extends IntentService {
                     broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
                     sendBroadcast(broadcastIntent);
                     setupStream();
+                    receiveFromInputStream();
                     break;
                 }
             }
@@ -105,11 +107,14 @@ public class BluetoothConnectService extends IntentService {
         } catch (IOException e) {
             Log.e("Error", "Could not close the connect socket", e);
         } finally {
-            Log.d("Akhirnya", "ke sini");
-            broadcastIntent = new Intent();
-            broadcastIntent.setAction(DISCONNECTED);
-            broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
-            sendBroadcast(broadcastIntent);
+            if (!isStopped) {
+                Log.d("Akhirnya", "ke sini");
+                broadcastIntent = new Intent();
+                broadcastIntent.setAction(DISCONNECTED);
+                broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                sendBroadcast(broadcastIntent);
+                isStopped = true;
+            }
         }
     }
 
@@ -134,8 +139,6 @@ public class BluetoothConnectService extends IntentService {
         Log.d("Lalu", "ke sini");
         mmInStream = tmpIn;
         mmOutStream = tmpOut;
-
-        receiveFromInputStream();
     }
 
     public void receiveFromInputStream() {
@@ -184,19 +187,20 @@ public class BluetoothConnectService extends IntentService {
                             broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
                             sendBroadcast(broadcastIntent);
                             setupStream();
+                            receiveFromInputStream();
                         }
                     }
                 };
                 reconnectThread = new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        for (int i = 0; i < 100; i++) {
+                        long startTime = System.currentTimeMillis();
+                        while (true) {
                             SystemClock.sleep(100);
                             reconnectRunnable.run();
-                            if (socket.isConnected() || !tryReconnecting)
+                            long timeElapsed = System.currentTimeMillis() - startTime;
+                            if (socket.isConnected() || !tryReconnecting || timeElapsed >= 10000)
                                 break;
-                            if (i % 10 == 0)
-                                Log.d("Coba", "Lagi");
                         }
                         if (!socket.isConnected()) {
                             stop();
