@@ -9,29 +9,29 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="18dp"
-        android:gravity="start">
+        android:gravity="start"
+        android:padding="18dp">
 
         <ImageView
             android:id="@+id/device_image"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingEnd="18dp"
-            android:layout_centerVertical="true"/>
+            android:layout_centerVertical="true"
+            android:paddingEnd="18dp"/>
         <TextView
             android:id="@+id/device_details"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingEnd="18dp"
             android:layout_centerVertical="true"
-            android:layout_toEndOf="@id/device_image"/>
+            android:layout_toEndOf="@id/device_image"
+            android:paddingEnd="18dp"/>
         <Button
             android:id="@+id/connect"
             android:layout_width="96dp"
             android:layout_height="wrap_content"
-            android:text="Pair"
             android:layout_alignParentEnd="true"
-            android:layout_centerVertical="true"/>
+            android:layout_centerVertical="true"
+            android:text="Pair"/>
 
     </RelativeLayout>
 
