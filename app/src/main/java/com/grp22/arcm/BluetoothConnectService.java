@@ -26,8 +26,8 @@ public class BluetoothConnectService extends IntentService {
     private OutputStream mmOutStream;
     private Intent broadcastIntent;
     private boolean tryReconnecting = true;
+    private Runnable reconnectRunnable;
     private Thread reconnectThread;
-    private Thread stopThread;
 
     public static final String CONNECT_SUCCESS = "com.grp22.arcm.CONNECTION_SUCCESSFUL";
     public static final String CONNECT_FAIL = "com.grp22.arcm.CONNECTION_FAIL";
@@ -117,6 +117,9 @@ public class BluetoothConnectService extends IntentService {
         InputStream tmpIn = null;
         OutputStream tmpOut = null;
 
+        if (reconnectThread != null)
+            reconnectThread.interrupt();
+
         try {
             tmpIn = socket.getInputStream();
         } catch (IOException e) {
@@ -162,51 +165,47 @@ public class BluetoothConnectService extends IntentService {
                     broadcastIntent.setAction(CONNECTION_INTERRUPTED);
                     broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
                     sendBroadcast(broadcastIntent);
-                    stopThread = new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            SystemClock.sleep(10000);
-                            if (!socket.isConnected()) {
-                                Log.d("Aku", "hidup");
-                                onDestroy();
-                            }
-                        }
-                    });
-                    stopThread.start();
-                    reconnectThread = new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            Log.d("Aku", "jalan");
-                            SystemClock.sleep(1000);
-                            try {
-                                mmInStream.close();
-                                mmOutStream.close();
-                                socket = null;
-                                socket = device.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
-                                socket.connect();
-                            } catch (IOException exception) {
-                                try {
-                                    socket.close();
-                                } catch (IOException error) {
-                                    error.printStackTrace();
-                                }
-                            }
-                            if (socket.isConnected()) {
-                                Log.d("Balik", "ke atas deh");
-                                broadcastIntent = new Intent();
-                                broadcastIntent.setAction(CONNECTION_RECOVERED);
-                                broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
-                                sendBroadcast(broadcastIntent);
-                                stopThread.interrupt();
-                                setupStream();
-                            }
-                        }
-                    });
-                    reconnectThread.start();
-                    break;
-                } else {
-                    break;
                 }
+                reconnectRunnable = new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            mmInStream.close();
+                            mmOutStream.close();
+                            socket = null;
+                            socket = device.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
+                            socket.connect();
+                        } catch (IOException exception) {
+                            // Nothing can be done
+                        }
+                        if (socket.isConnected()) {
+                            broadcastIntent = new Intent();
+                            broadcastIntent.setAction(CONNECTION_RECOVERED);
+                            broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                            sendBroadcast(broadcastIntent);
+                            setupStream();
+                        }
+                    }
+                };
+                reconnectThread = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        for (int i = 0; i < 100; i++) {
+                            SystemClock.sleep(100);
+                            reconnectRunnable.run();
+                            if (socket.isConnected() || !tryReconnecting)
+                                break;
+                            if (i % 10 == 0)
+                                Log.d("Coba", "Lagi");
+                        }
+                        if (!socket.isConnected()) {
+                            stop();
+                        }
+                    }
+                });
+                if (tryReconnecting)
+                    reconnectThread.start();
+                break;
             }
         }
     }
@@ -221,10 +220,6 @@ public class BluetoothConnectService extends IntentService {
 
     public void stop() {
         tryReconnecting = false;
-        try {
-            socket.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        onDestroy();
     }
 }

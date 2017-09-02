@@ -38,6 +38,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean isRegistered = false;
     private ProgressDialog progressDialog;
     private MainActivity activity;
+    private boolean isPreviouslyRecovered;
 
     private ServiceConnection mConnection = new ServiceConnection() {
 
@@ -98,18 +99,24 @@ public class MainActivity extends AppCompatActivity {
         ImageButton forward = (ImageButton) findViewById(R.id.forward);
         forward.setOnTouchListener(new ControllerListener("forward"));
 
+        ImageButton reverse = (ImageButton) findViewById(R.id.reverse);
+        reverse.setOnTouchListener(new ControllerListener("reverse"));
+
         ImageButton left = (ImageButton) findViewById(R.id.left);
         left.setOnTouchListener(new ControllerListener("left"));
 
         ImageButton right = (ImageButton) findViewById(R.id.right);
         right.setOnTouchListener(new ControllerListener("right"));
 
-        ImageButton rotate = (ImageButton) findViewById(R.id.rotate);
-        rotate.setOnTouchListener(new ControllerListener("rotate"));
+        ImageButton rotateLeft = (ImageButton) findViewById(R.id.rotate_left);
+        rotateLeft.setOnTouchListener(new ControllerListener("rotateLeft"));
+
+        ImageButton rotateRight = (ImageButton) findViewById(R.id.rotate_right);
+        rotateRight.setOnTouchListener(new ControllerListener("rotateRight"));
 
         progressDialog = new ProgressDialog(activity);
-        progressDialog.setTitle("Please Wait");
-        progressDialog.setMessage("Connection interrupted. Reconnecting...");
+        progressDialog.setTitle("Connection Interrupted");
+        progressDialog.setMessage("Attempting to reconnect. Please wait...");
         progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
         progressDialog.setIndeterminate(true);
         progressDialog.setCanceledOnTouchOutside(false);
@@ -154,11 +161,15 @@ public class MainActivity extends AppCompatActivity {
             String action = intent.getAction();
             switch (action) {
                 case BluetoothConnectService.CONNECTION_INTERRUPTED:
+                    isPreviouslyRecovered = false;
                     progressDialog.show();
                     break;
                 case BluetoothConnectService.CONNECTION_RECOVERED:
-                    progressDialog.dismiss();
-                    Toast.makeText(getApplicationContext(), "Connection recovered", Toast.LENGTH_SHORT).show();
+                    if (!isPreviouslyRecovered) {
+                        progressDialog.dismiss();
+                        Toast.makeText(getApplicationContext(), "Connection recovered", Toast.LENGTH_SHORT).show();
+                        isPreviouslyRecovered = true;
+                    }
                     break;
                 case BluetoothConnectService.DISCONNECTED:
                     Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_SHORT).show();

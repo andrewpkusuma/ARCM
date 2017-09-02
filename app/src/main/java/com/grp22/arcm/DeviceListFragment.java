@@ -31,7 +31,6 @@ public class DeviceListFragment extends Fragment {
     private RecyclerView deviceItemListView;
     private ToggleButton scan;
     private Button connect;
-    private DeviceListFragment fragment = this;
 
     private final BroadcastReceiver bcReciever = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
