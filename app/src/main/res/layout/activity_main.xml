@@ -182,12 +182,13 @@
                 android:textOff="Refresh: Manual"
                 android:textOn="Refresh: Auto"/>
             <Button
-                android:id="@+id/empty_button"
+                android:id="@+id/speech_command"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="end"
+                android:drawableStart="@drawable/ic_mic_black_48px"
                 android:gravity="start|center_vertical"
-                android:text=" For C.10"/>
+                android:text=" Speech Command"/>
 
         </LinearLayout>
 

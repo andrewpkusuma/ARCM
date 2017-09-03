@@ -3,6 +3,7 @@ package com.grp22.arcm;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.ProgressDialog;
+import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -13,7 +14,9 @@ import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.SystemClock;
 import android.preference.PreferenceManager;
+import android.speech.RecognizerIntent;
 import android.support.annotation.NonNull;
 import android.support.v4.app.DialogFragment;
 import android.support.v7.app.AppCompatActivity;
@@ -29,6 +32,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 public class MainActivity extends AppCompatActivity {
 
     private ResponseReceiver receiver;
@@ -37,8 +47,8 @@ public class MainActivity extends AppCompatActivity {
     boolean mBound = false;
     private boolean isRegistered = false;
     private ProgressDialog progressDialog;
-    private MainActivity activity;
     private boolean isPreviouslyRecovered;
+    private final int REQ_CODE_SPEECH_INPUT = 69;
 
     private ServiceConnection mConnection = new ServiceConnection() {
 
@@ -61,7 +71,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        activity = this;
         setContentView(R.layout.activity_main);
 
         status = (TextView) findViewById(R.id.status);
@@ -130,7 +139,15 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        progressDialog = new ProgressDialog(activity);
+        Button speechCommand = (Button) findViewById(R.id.speech_command);
+        speechCommand.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                promptSpeechInput();
+            }
+        });
+
+        progressDialog = new ProgressDialog(this);
         progressDialog.setTitle("Connection Interrupted");
         progressDialog.setMessage("Attempting to reconnect. Please wait...");
         progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
@@ -171,6 +188,119 @@ public class MainActivity extends AppCompatActivity {
         mService.sendToOutputStream(message);
     }
 
+    public void promptSpeechInput() {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT,
+                "Your wish is my command");
+        try {
+            startActivityForResult(intent, REQ_CODE_SPEECH_INPUT);
+        } catch (ActivityNotFoundException a) {
+            Toast.makeText(getApplicationContext(),
+                    "Speech not supported",
+                    Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        switch (requestCode) {
+            case REQ_CODE_SPEECH_INPUT: {
+                if (resultCode == RESULT_OK && null != data) {
+
+                    ArrayList<String> result = data
+                            .getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                    processCommand(result.get(0));
+                }
+                break;
+            }
+        }
+    }
+
+    private void processCommand(String speech) {
+        String command = "";
+        boolean isRepeatable = false;
+        int rep = 1;
+
+        speech = speech.toLowerCase();
+
+        Map<String, String> replacements = new HashMap<String, String>() {{
+            put("one ", "1");
+            put("two ", "2");
+            put("three ", "3");
+            put("four ", "4");
+            put("five ", "5");
+            put("six ", "6");
+            put("seven ", "7");
+            put("eight ", "8");
+            put("nine ", "9");
+            put("ten ", "10");
+        }};
+
+        String regexp = "one |two |three |four |five |six |seven |eight |nine |ten ";
+
+        StringBuffer sb = new StringBuffer();
+        Pattern p = Pattern.compile(regexp);
+        Matcher m = p.matcher(speech);
+
+        while (m.find())
+            m.appendReplacement(sb, replacements.get(m.group()));
+        m.appendTail(sb);
+
+        speech = sb.toString();
+
+        Log.d("Command: ", speech);
+        if (speech.contains("forward")) {
+            command = "forward";
+            isRepeatable = true;
+        } else if (speech.contains("reverse")) {
+            command = "reverse";
+            isRepeatable = true;
+        } else if (speech.contains("left")) {
+            command = "left";
+            isRepeatable = true;
+        } else if (speech.contains("right")) {
+            command = "right";
+            isRepeatable = true;
+        } else if (speech.contains("rotate left")) {
+            command = "rotateLeft";
+            isRepeatable = true;
+        } else if (speech.contains("rotate right")) {
+            command = "rotateRight";
+            isRepeatable = true;
+        } else if (speech.contains("begin exploration")) {
+            command = "beginExploration";
+        } else if (speech.contains("begin fastest path")) {
+            command = "beginFastestPath";
+        } else
+            return;
+
+        Matcher matcher = Pattern.compile("\\d+").matcher(speech);
+        if (matcher.find())
+            rep = Integer.valueOf(matcher.group());
+
+        final String toSend = command;
+        final int repetition = rep;
+
+        if (isRepeatable) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    for (int i = 0; i < repetition; i++) {
+                        mService.sendToOutputStream(toSend);
+                        SystemClock.sleep(500);
+                    }
+                }
+            }).start();
+        } else {
+            mService.sendToOutputStream(toSend);
+        }
+    }
+
     public class ResponseReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -202,6 +332,7 @@ public class MainActivity extends AppCompatActivity {
 
     private class ControllerListener implements View.OnTouchListener {
         String command;
+        Thread sendCommandThread;
 
         public ControllerListener(String command) {
             this.command = command;
@@ -209,10 +340,24 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public boolean onTouch(View view, MotionEvent event) {
-            if (event.getAction() == MotionEvent.ACTION_DOWN)
-                mService.sendToOutputStream(command);
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                sendCommandThread = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        while (true) {
+                            mService.sendToOutputStream(command);
+                            try {
+                                Thread.sleep(500);
+                            } catch (InterruptedException e) {
+                                break;
+                            }
+                        }
+                    }
+                });
+                sendCommandThread.start();
+            }
             else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL)
-                mService.sendToOutputStream("stop");
+                sendCommandThread.interrupt();
             return true;
         }
     }
