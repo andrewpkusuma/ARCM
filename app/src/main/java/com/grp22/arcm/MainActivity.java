@@ -49,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
     private ProgressDialog progressDialog;
     private boolean isPreviouslyRecovered;
     private final int REQ_CODE_SPEECH_INPUT = 69;
+    private int orientation = 0; // 0 = up, 1 = right, 2 = down, 3 = left
 
     private ServiceConnection mConnection = new ServiceConnection() {
 
@@ -221,6 +222,41 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public void sendCommand(String command) {
+        String[] commandList = {"forward", "rotateLeft", "reverse", "rotateRight"};
+
+        switch (command) {
+            case "forward":
+                mService.sendToOutputStream(commandList[(orientation + 4) % 4]);
+                if (orientation != 2)
+                    orientation = 0;
+                break;
+            case "right":
+                mService.sendToOutputStream(commandList[(orientation + 3) % 4]);
+                if (orientation != 3)
+                    orientation = 1;
+                break;
+            case "reverse":
+                mService.sendToOutputStream(commandList[(orientation + 2) % 4]);
+                if (orientation != 0)
+                    orientation = 2;
+                break;
+            case "left":
+                mService.sendToOutputStream(commandList[(orientation + 1) % 4]);
+                if (orientation != 1)
+                    orientation = 3;
+                break;
+            case "rotateRight":
+                mService.sendToOutputStream(commandList[3]);
+                orientation = (orientation + 1) % 4;
+                break;
+            case "rotateLeft":
+                mService.sendToOutputStream(commandList[1]);
+                orientation = (orientation + 3) % 4;
+                break;
+        }
+    }
+
     private void processCommand(String speech) {
         String command = "";
         boolean isRepeatable = false;
@@ -239,9 +275,13 @@ public class MainActivity extends AppCompatActivity {
             put("eight ", "8");
             put("nine ", "9");
             put("ten ", "10");
+
+            put("to ", "2");
+            put("tree ", "3");
+            put("for ", "4");
         }};
 
-        String regexp = "one |two |three |four |five |six |seven |eight |nine |ten ";
+        String regexp = "one |two |three |four |five |six |seven |eight |nine |ten |to |tree |for ";
 
         StringBuffer sb = new StringBuffer();
         Pattern p = Pattern.compile(regexp);
@@ -274,7 +314,7 @@ public class MainActivity extends AppCompatActivity {
             isRepeatable = true;
         } else if (speech.contains("begin exploration")) {
             command = "beginExploration";
-        } else if (speech.contains("begin fastest path")) {
+        } else if (speech.contains("fastest path")) {
             command = "beginFastestPath";
         } else
             return;
@@ -291,7 +331,7 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     for (int i = 0; i < repetition; i++) {
-                        mService.sendToOutputStream(toSend);
+                        sendCommand(toSend);
                         SystemClock.sleep(500);
                     }
                 }
@@ -345,7 +385,7 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void run() {
                         while (true) {
-                            mService.sendToOutputStream(command);
+                            sendCommand(command);
                             try {
                                 Thread.sleep(500);
                             } catch (InterruptedException e) {
@@ -355,8 +395,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
                 sendCommandThread.start();
-            }
-            else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL)
+            } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL)
                 sendCommandThread.interrupt();
             return true;
         }
