@@ -32,12 +32,11 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -50,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean isPreviouslyRecovered;
     private final int REQ_CODE_SPEECH_INPUT = 69;
     private int orientation = 0; // 0 = up, 1 = right, 2 = down, 3 = left
+    private final SpeechCommandProcessor processor = new SpeechCommandProcessor();
 
     private ServiceConnection mConnection = new ServiceConnection() {
 
@@ -228,116 +228,64 @@ public class MainActivity extends AppCompatActivity {
         switch (command) {
             case "forward":
                 mService.sendToOutputStream(commandList[(orientation + 4) % 4]);
-                if (orientation != 2)
-                    orientation = 0;
                 break;
             case "right":
                 mService.sendToOutputStream(commandList[(orientation + 3) % 4]);
-                if (orientation != 3)
-                    orientation = 1;
                 break;
             case "reverse":
                 mService.sendToOutputStream(commandList[(orientation + 2) % 4]);
-                if (orientation != 0)
-                    orientation = 2;
                 break;
             case "left":
                 mService.sendToOutputStream(commandList[(orientation + 1) % 4]);
-                if (orientation != 1)
-                    orientation = 3;
                 break;
             case "rotateRight":
                 mService.sendToOutputStream(commandList[3]);
-                orientation = (orientation + 1) % 4;
                 break;
             case "rotateLeft":
                 mService.sendToOutputStream(commandList[1]);
-                orientation = (orientation + 3) % 4;
                 break;
         }
     }
 
     private void processCommand(String speech) {
-        String command = "";
-        boolean isRepeatable = false;
-        int rep = 1;
+        processor.process(speech);
 
-        speech = speech.toLowerCase();
-
-        Map<String, String> replacements = new HashMap<String, String>() {{
-            put("one ", "1");
-            put("two ", "2");
-            put("three ", "3");
-            put("four ", "4");
-            put("five ", "5");
-            put("six ", "6");
-            put("seven ", "7");
-            put("eight ", "8");
-            put("nine ", "9");
-            put("ten ", "10");
-
-            put("to ", "2");
-            put("tree ", "3");
-            put("for ", "4");
-        }};
-
-        String regexp = "one |two |three |four |five |six |seven |eight |nine |ten |to |tree |for ";
-
-        StringBuffer sb = new StringBuffer();
-        Pattern p = Pattern.compile(regexp);
-        Matcher m = p.matcher(speech);
-
-        while (m.find())
-            m.appendReplacement(sb, replacements.get(m.group()));
-        m.appendTail(sb);
-
-        speech = sb.toString();
-
-        Log.d("Command: ", speech);
-        if (speech.contains("forward")) {
-            command = "forward";
-            isRepeatable = true;
-        } else if (speech.contains("reverse")) {
-            command = "reverse";
-            isRepeatable = true;
-        } else if (speech.contains("left")) {
-            command = "left";
-            isRepeatable = true;
-        } else if (speech.contains("right")) {
-            command = "right";
-            isRepeatable = true;
-        } else if (speech.contains("rotate left")) {
-            command = "rotateLeft";
-            isRepeatable = true;
-        } else if (speech.contains("rotate right")) {
-            command = "rotateRight";
-            isRepeatable = true;
-        } else if (speech.contains("begin exploration")) {
-            command = "beginExploration";
-        } else if (speech.contains("fastest path")) {
-            command = "beginFastestPath";
-        } else
-            return;
-
-        Matcher matcher = Pattern.compile("\\d+").matcher(speech);
-        if (matcher.find())
-            rep = Integer.valueOf(matcher.group());
-
-        final String toSend = command;
-        final int repetition = rep;
-
-        if (isRepeatable) {
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    for (int i = 0; i < repetition; i++) {
-                        sendCommand(toSend);
-                        SystemClock.sleep(500);
+        final String command = processor.getCommand();
+        if (command != null) {
+            if (processor.isRepeatable()) {
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        for (int i = 0; i < processor.getRepetition(); i++) {
+                            sendCommand(command);
+                            SystemClock.sleep(500);
+                        }
                     }
-                }
-            }).start();
-        } else {
-            mService.sendToOutputStream(toSend);
+                }).start();
+            } else {
+                mService.sendToOutputStream(command);
+            }
+        }
+    }
+
+    private void handleStringInput(String input) {
+        try {
+            JSONObject inputJsonObject = new JSONObject(input);
+            if (inputJsonObject.has("robotPosition")) {
+                String positionString = inputJsonObject.getString("robotPosition");
+                String[] positionStrings = positionString.substring(1, positionString.length() - 1).split(",");
+                int[] positions = new int[positionStrings.length];
+                for (int i = 0; i < positionStrings.length; i++)
+                    positions[i] = Integer.parseInt(positionStrings[i]);
+                orientation = positions[2] / 90;
+            } else if (inputJsonObject.has("grid")) {
+                status.setText("MAP UPDATED");
+            } else if (inputJsonObject.has("status")) {
+                String statusText = inputJsonObject.getString("status");
+                status.setText(statusText.toUpperCase());
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
         }
     }
 
@@ -364,7 +312,7 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 case BluetoothConnectService.STRING_RECEIVED:
                     String message = intent.getStringExtra("message");
-                    status.setText(message);
+                    handleStringInput(message);
                     break;
             }
         }
