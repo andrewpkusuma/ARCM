@@ -50,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
     private final int REQ_CODE_SPEECH_INPUT = 69;
     private int orientation = 0; // 0 = up, 1 = right, 2 = down, 3 = left
     private final SpeechCommandProcessor processor = new SpeechCommandProcessor();
+    private final Object lock = new Object();
 
     private ServiceConnection mConnection = new ServiceConnection() {
 
@@ -256,8 +257,17 @@ public class MainActivity extends AppCompatActivity {
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        for (int i = 0; i < processor.getRepetition(); i++) {
-                            sendCommand(command);
+                        // The command's orientation is aligned to the robot
+                        int initialOrientation = orientation;
+                        int repetition = processor.getRepetition();
+                        repetition += processor.getTargetOrientation() % 2;
+                        // To align the command orientation with the arena map (as opposed to the robot), use:
+                        // repetition += Math.abs(orientation - processor.getTargetOrientation()) % 2;
+                        for (int i = 0; i < repetition; i++) {
+                            synchronized (lock) {
+                                orientation -= initialOrientation; // remove this to align the command orientation with the arena map
+                                sendCommand(command);
+                            }
                             SystemClock.sleep(500);
                         }
                     }
@@ -277,7 +287,9 @@ public class MainActivity extends AppCompatActivity {
                 int[] positions = new int[positionStrings.length];
                 for (int i = 0; i < positionStrings.length; i++)
                     positions[i] = Integer.parseInt(positionStrings[i]);
-                orientation = positions[2] / 90;
+                synchronized (lock) {
+                    orientation = positions[2] / 90;
+                }
             } else if (inputJsonObject.has("grid")) {
                 status.setText("MAP UPDATED");
             } else if (inputJsonObject.has("status")) {
@@ -333,7 +345,9 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void run() {
                         while (true) {
-                            sendCommand(command);
+                            synchronized (lock) {
+                                sendCommand(command);
+                            }
                             try {
                                 Thread.sleep(500);
                             } catch (InterruptedException e) {

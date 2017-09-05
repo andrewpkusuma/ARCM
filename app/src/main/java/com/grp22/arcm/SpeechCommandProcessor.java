@@ -15,11 +15,13 @@ public class SpeechCommandProcessor {
     private String command;
     private boolean isRepeatable;
     private int repetition;
+    private int targetOrientation;
 
     public SpeechCommandProcessor() {
         this.command = null;
         this.isRepeatable = false;
-        this.repetition = 0;
+        this.repetition = 1;
+        this.targetOrientation = 0;
     }
 
     public void process(String speech) {
@@ -40,9 +42,13 @@ public class SpeechCommandProcessor {
             put("to ", "2");
             put("tree ", "3");
             put("for ", "4");
+
+            put("wright", "right");
+            put("town", "down");
+            put("last", "left");
         }};
 
-        String regexp = "one |two |three |four |five |six |seven |eight |nine |ten |to |tree |for ";
+        String regexp = "one |two |three |four |five |six |seven |eight |nine |ten |to |tree |for |wright|town|last";
 
         StringBuffer sb = new StringBuffer();
         Pattern p = Pattern.compile(regexp);
@@ -58,31 +64,41 @@ public class SpeechCommandProcessor {
         if (speech.contains("forward")) {
             command = "forward";
             isRepeatable = true;
-        } else if (speech.contains("reverse")) {
+            targetOrientation = 0;
+        } else if (speech.contains("back")) {
             command = "reverse";
             isRepeatable = true;
+            targetOrientation = 2;
+        } else if (speech.contains("turn left")) {
+            command = "rotateLeft";
+            isRepeatable = true;
+            targetOrientation = 2;
+        } else if (speech.contains("turn right")) {
+            command = "rotateRight";
+            isRepeatable = true;
+            targetOrientation = 0;
         } else if (speech.contains("left")) {
             command = "left";
             isRepeatable = true;
+            targetOrientation = 3;
         } else if (speech.contains("right")) {
             command = "right";
             isRepeatable = true;
-        } else if (speech.contains("rotate left")) {
-            command = "rotateLeft";
-            isRepeatable = true;
-        } else if (speech.contains("rotate right")) {
-            command = "rotateRight";
-            isRepeatable = true;
-        } else if (speech.contains("begin exploration")) {
+            targetOrientation = 1;
+        } else if (speech.contains("exploration")) {
             command = "beginExploration";
-        } else if (speech.contains("fastest path")) {
+            isRepeatable = false;
+        } else if (speech.contains("fastest")) {
             command = "beginFastestPath";
+            isRepeatable = false;
         } else
             command = null;
 
         Matcher matcher = Pattern.compile("\\d+").matcher(speech);
         if (matcher.find())
             repetition = Integer.valueOf(matcher.group());
+        else
+            repetition = 1;
     }
 
     public String getCommand() {
@@ -95,5 +111,9 @@ public class SpeechCommandProcessor {
 
     public boolean isRepeatable() {
         return this.isRepeatable;
+    }
+
+    public int getTargetOrientation() {
+        return this.targetOrientation;
     }
 }
