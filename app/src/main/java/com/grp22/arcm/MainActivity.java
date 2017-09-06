@@ -41,9 +41,10 @@ import java.util.Locale;
 public class MainActivity extends AppCompatActivity {
 
     private ResponseReceiver receiver;
+    private IntentFilter filter;
     private TextView status;
     private BluetoothConnectService mService;
-    boolean mBound = false;
+    private boolean mBound = false;
     private boolean isRegistered = false;
     private ProgressDialog progressDialog;
     private boolean isPreviouslyRecovered;
@@ -163,7 +164,7 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(this, BluetoothConnectService.class);
         bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
 
-        IntentFilter filter = new IntentFilter();
+        filter = new IntentFilter();
         filter.addAction(BluetoothConnectService.CONNECTION_INTERRUPTED);
         filter.addAction(BluetoothConnectService.CONNECTION_RECOVERED);
         filter.addAction(BluetoothConnectService.DISCONNECTED);
@@ -177,12 +178,33 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
-        if (isRegistered)
+        mService.stop();
+        if (isRegistered) {
             unregisterReceiver(receiver);
+            isRegistered = false;
+        }
         // Unbind from the service
         if (mBound) {
             unbindService(mConnection);
             mBound = false;
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        mService.stop();
+        unbindService(mConnection);
+        mBound = false;
+    }
+
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        if (!mBound) {
+            Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_SHORT).show();
+            Intent begin = new Intent(getApplicationContext(), BluetoothConnectActivity.class);
+            startActivity(begin);
         }
     }
 
@@ -341,11 +363,14 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public boolean onTouch(View view, MotionEvent event) {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                // The command's orientation is aligned to the robot
+                // final int initialOrientation = orientation; // remove this to align the command orientation with the arena map
                 sendCommandThread = new Thread(new Runnable() {
                     @Override
                     public void run() {
                         while (true) {
                             synchronized (lock) {
+                                // orientation -= initialOrientation; // remove this to align the command orientation with the arena map
                                 sendCommand(command);
                             }
                             try {

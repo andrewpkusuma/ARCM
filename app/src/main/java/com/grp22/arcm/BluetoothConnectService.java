@@ -103,7 +103,8 @@ public class BluetoothConnectService extends IntentService {
                 mmInStream.close();
             if (mmOutStream != null)
                 mmOutStream.close();
-            socket.close();
+            if (socket != null)
+                socket.close();
         } catch (IOException e) {
             Log.e("Error", "Could not close the connect socket", e);
         } finally {
