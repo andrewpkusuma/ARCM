@@ -86,7 +86,7 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
             }
             if (action.equals(BluetoothConnectService.CONNECT_FAIL)) {
                 Toast.makeText(getApplicationContext(), "Fail to connect", Toast.LENGTH_SHORT).show();
-                mDeviceListFragment.toggleConnect(true);
+                mDeviceListFragment.setSelection(true);
             }
         }
     }

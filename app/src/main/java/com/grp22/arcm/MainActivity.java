@@ -176,8 +176,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onStop() {
-        super.onStop();
+    protected void onDestroy() {
         mService.stop();
         if (isRegistered) {
             unregisterReceiver(receiver);
@@ -188,24 +187,7 @@ public class MainActivity extends AppCompatActivity {
             unbindService(mConnection);
             mBound = false;
         }
-    }
-
-    @Override
-    public void onBackPressed() {
-        super.onBackPressed();
-        mService.stop();
-        unbindService(mConnection);
-        mBound = false;
-    }
-
-    @Override
-    protected void onRestart() {
-        super.onRestart();
-        if (!mBound) {
-            Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_SHORT).show();
-            Intent begin = new Intent(getApplicationContext(), BluetoothConnectActivity.class);
-            startActivity(begin);
-        }
+        super.onDestroy();
     }
 
     private void sendMessage(String message) {

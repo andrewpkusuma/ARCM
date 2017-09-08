@@ -21,6 +21,7 @@ import android.widget.Toast;
 import android.widget.ToggleButton;
 
 import java.util.ArrayList;
+import java.util.Set;
 
 public class DeviceListFragment extends Fragment {
 
@@ -93,6 +94,13 @@ public class DeviceListFragment extends Fragment {
                 if (isChecked) {
                     mAdapter.clear();
                     deviceItemListView.setAdapter(mAdapter);
+                    Set<BluetoothDevice> pairedDevices = BTAdapter.getBondedDevices();
+                    if (pairedDevices.size() > 0) {
+                        for (BluetoothDevice device : pairedDevices) {
+                            DeviceItem newDevice = new DeviceItem(device.getName(), device.getAddress(), device.getBondState());
+                            deviceItemList.add(newDevice);
+                        }
+                    }
                     getActivity().registerReceiver(bcReciever, filter);
                     BTAdapter.startDiscovery();
                     placeholder.removeView(view.findViewById(R.id.start_screen));
@@ -138,8 +146,9 @@ public class DeviceListFragment extends Fragment {
         mListener = null;
     }
 
-    public void toggleConnect(boolean isEnabled) {
+    public void setSelection(boolean isEnabled) {
         connect.setEnabled(isEnabled);
+        mAdapter.toggleSelection(isEnabled);
     }
 
     public interface OnFragmentInteractionListener {

@@ -67,7 +67,7 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
                         selectedPosition = holder.getAdapterPosition();
                         selectedAddress = deviceItems.get(selectedPosition).getAddress();
                         Log.d("Selected position", Integer.toString(selectedPosition));
-                        fragment.toggleConnect(true);
+                        fragment.setSelection(true);
                         notifyItemChanged(selectedPosition);
                     }
                 }
@@ -117,12 +117,8 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
         Log.d("Selected position", Integer.toString(selectedPosition));
         selectedAddress = null;
         deviceItems.clear();
-        fragment.toggleConnect(false);
+        fragment.setSelection(false);
         notifyDataSetChanged();
-    }
-
-    public int getSelectedPosition() {
-        return this.selectedPosition;
     }
 
     public String getSelectedAddress() {
