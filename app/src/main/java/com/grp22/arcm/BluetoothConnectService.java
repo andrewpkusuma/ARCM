@@ -29,6 +29,7 @@ public class BluetoothConnectService extends IntentService {
     private boolean isStopped = false;
     private Runnable reconnectRunnable;
     private Thread reconnectThread;
+    private int timeout;
 
     public static final String CONNECT_SUCCESS = "com.grp22.arcm.CONNECTION_SUCCESSFUL";
     public static final String CONNECT_FAIL = "com.grp22.arcm.CONNECTION_FAIL";
@@ -61,6 +62,7 @@ public class BluetoothConnectService extends IntentService {
         // Use a temporary object that is later assigned to mmServerSocket
         // because mmServerSocket is final.
         device = intent.getParcelableExtra("device");
+        timeout = intent.getIntExtra("timeout", 10);
         BluetoothSocket tmp = null;
         try {
             // MY_UUID is the app's UUID string, also used by the client code.
@@ -87,34 +89,11 @@ public class BluetoothConnectService extends IntentService {
                     broadcastIntent.setAction(CONNECT_SUCCESS);
                     broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
                     sendBroadcast(broadcastIntent);
+                    tryReconnecting = true;
                     setupStream();
                     receiveFromInputStream();
                     break;
                 }
-            }
-        }
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        try {
-            if (mmInStream != null)
-                mmInStream.close();
-            if (mmOutStream != null)
-                mmOutStream.close();
-            if (socket != null)
-                socket.close();
-        } catch (IOException e) {
-            Log.e("Error", "Could not close the connect socket", e);
-        } finally {
-            if (!isStopped) {
-                Log.d("Akhirnya", "ke sini");
-                broadcastIntent = new Intent();
-                broadcastIntent.setAction(DISCONNECTED);
-                broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
-                sendBroadcast(broadcastIntent);
-                isStopped = true;
             }
         }
     }
@@ -200,11 +179,12 @@ public class BluetoothConnectService extends IntentService {
                             SystemClock.sleep(100);
                             reconnectRunnable.run();
                             long timeElapsed = System.currentTimeMillis() - startTime;
-                            if (socket.isConnected() || !tryReconnecting || timeElapsed >= 10000)
+                            if (socket.isConnected() || !tryReconnecting || timeElapsed >= timeout * 1000)
                                 break;
                         }
                         if (!socket.isConnected()) {
                             stop();
+                            reconnectThread.interrupt();
                         }
                     }
                 });
@@ -225,6 +205,22 @@ public class BluetoothConnectService extends IntentService {
 
     public void stop() {
         tryReconnecting = false;
-        onDestroy();
+        try {
+            if (mmInStream != null)
+                mmInStream.close();
+            if (mmOutStream != null)
+                mmOutStream.close();
+            if (socket != null)
+                socket.close();
+        } catch (IOException e) {
+            Log.e("Error", "Could not close the connect socket", e);
+        } finally {
+            Log.d("Akhirnya", "ke sini");
+            broadcastIntent = new Intent();
+            broadcastIntent.setAction(DISCONNECTED);
+            broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+            sendBroadcast(broadcastIntent);
+            isStopped = true;
+        }
     }
 }

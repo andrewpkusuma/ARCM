@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingEnd="24dp"
+    android:paddingStart="24dp"
+    android:paddingTop="24dp">
+
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="3dp"
+            android:text="Movement control direction reference"
+            android:textColor="@android:color/black"
+            android:textSize="18dp"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Select the reference for the mobile robot movement's direction"/>
+        <RadioGroup
+            android:id="@+id/movement_reference"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:layout_marginTop="12dp">
+
+            <RadioButton
+                android:id="@+id/movement_robot"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:text="Mobile robot"
+                android:textSize="18dp"/>
+            <TextView
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="3dp"
+                android:text="\t\t The mobile robot's face direction"/>
+            <RadioButton
+                android:id="@+id/movement_arena"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Arena"
+                android:textSize="18dp"/>
+            <TextView
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:text="\t\t The arena's orientation"/>
+
+        </RadioGroup>
+        <View
+            android:layout_width="fill_parent"
+            android:layout_height="1dp"
+            android:layout_marginBottom="12dp"
+            android:background="@android:color/darker_gray"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="3dp"
+            android:text="Bluetooth command burst mode delay"
+            android:textColor="@android:color/black"
+            android:textSize="18dp"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Select the delay when sending Bluetooth command in burst mode (e.g. when long-pressing control buttons)"/>
+        <RadioGroup
+            android:id="@+id/delay"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:layout_marginTop="12dp">
+
+            <RadioButton
+                android:id="@+id/delay_short"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Short (500 ms)"
+                android:textSize="18dp"/>
+            <TextView
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="3dp"
+                android:text="\t\t Warning: might face synchronization issue"/>
+            <RadioButton
+                android:id="@+id/delay_medium"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="3dp"
+                android:text="Medium (750 ms)"
+                android:textSize="18dp"/>
+            <RadioButton
+                android:id="@+id/delay_long"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="3dp"
+                android:text="Long (1000 ms)"
+                android:textSize="18dp"/>
+
+        </RadioGroup>
+        <View
+            android:layout_width="fill_parent"
+            android:layout_height="1dp"
+            android:layout_marginBottom="12dp"
+            android:background="@android:color/darker_gray"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="3dp"
+            android:text="Connection timeout"
+            android:textColor="@android:color/black"
+            android:textSize="18dp"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Select the length of reconnecting attempt before timeout"/>
+        <RadioGroup
+            android:id="@+id/timeout"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:layout_marginTop="12dp">
+
+            <RadioButton
+                android:id="@+id/timeout_short"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="3dp"
+                android:text="Short (2 seconds)"
+                android:textSize="18dp"/>
+            <RadioButton
+                android:id="@+id/timeout_medium"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="3dp"
+                android:text="Medium (5 seconds)"
+                android:textSize="18dp"/>
+            <RadioButton
+                android:id="@+id/timeout_long"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Long (10 seconds)"
+                android:textSize="18dp"/>
+
+        </RadioGroup>
+
+    </LinearLayout>
+
+</ScrollView>

@@ -17,17 +17,23 @@ import android.os.IBinder;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.speech.RecognizerIntent;
+import android.support.annotation.IdRes;
 import android.support.annotation.NonNull;
 import android.support.v4.app.DialogFragment;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
@@ -40,6 +46,10 @@ import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
+    private SharedPreferences sharedPreferences;
+    private int delay;
+    private int timeout;
+    private boolean isArena;
     private ResponseReceiver receiver;
     private IntentFilter filter;
     private TextView status;
@@ -75,6 +85,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_main);
+
+        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
 
         status = (TextView) findViewById(R.id.status);
 
@@ -159,6 +171,26 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu_main, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle item selection
+        switch (item.getItemId()) {
+            case R.id.settings:
+                SettingsDialogFragment dialogFragment = SettingsDialogFragment.newInstance();
+                dialogFragment.show(getSupportFragmentManager(), "Settings");
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
+    @Override
     protected void onStart() {
         super.onStart();
         Intent intent = new Intent(this, BluetoothConnectService.class);
@@ -180,6 +212,7 @@ public class MainActivity extends AppCompatActivity {
         mService.stop();
         if (isRegistered) {
             unregisterReceiver(receiver);
+            Log.d("Unregistered", "yay");
             isRegistered = false;
         }
         // Unbind from the service
@@ -261,18 +294,19 @@ public class MainActivity extends AppCompatActivity {
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        // The command's orientation is aligned to the robot
                         int initialOrientation = orientation;
                         int repetition = processor.getRepetition();
-                        repetition += processor.getTargetOrientation() % 2;
-                        // To align the command orientation with the arena map (as opposed to the robot), use:
-                        // repetition += Math.abs(orientation - processor.getTargetOrientation()) % 2;
+                        if (isArena)
+                            repetition += Math.abs(orientation - processor.getTargetOrientation()) % 2;
+                        else
+                            repetition += processor.getTargetOrientation() % 2;
                         for (int i = 0; i < repetition; i++) {
                             synchronized (lock) {
-                                orientation -= initialOrientation; // remove this to align the command orientation with the arena map
+                                if (!isArena)
+                                    orientation -= initialOrientation;
                                 sendCommand(command);
                             }
-                            SystemClock.sleep(500);
+                            SystemClock.sleep(delay);
                         }
                     }
                 }).start();
@@ -305,6 +339,15 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public void refreshSettings() {
+        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        delay = sharedPreferences.getInt("delay", 500);
+        String movement = sharedPreferences.getString("movement", "robot");
+        if (movement.equals("arena"))
+            isArena = true;
+        timeout = sharedPreferences.getInt("timeout", 10);
+    }
+
     public class ResponseReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -322,6 +365,9 @@ public class MainActivity extends AppCompatActivity {
                     }
                     break;
                 case BluetoothConnectService.DISCONNECTED:
+                    unregisterReceiver(receiver);
+                    Log.d("Unregistered", "yay");
+                    isRegistered = false;
                     Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_SHORT).show();
                     Intent begin = new Intent(getApplicationContext(), BluetoothConnectActivity.class);
                     startActivity(begin);
@@ -345,18 +391,18 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public boolean onTouch(View view, MotionEvent event) {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                // The command's orientation is aligned to the robot
-                // final int initialOrientation = orientation; // remove this to align the command orientation with the arena map
+                final int initialOrientation = orientation;
                 sendCommandThread = new Thread(new Runnable() {
                     @Override
                     public void run() {
                         while (true) {
                             synchronized (lock) {
-                                // orientation -= initialOrientation; // remove this to align the command orientation with the arena map
+                                if (!isArena)
+                                    orientation -= initialOrientation;
                                 sendCommand(command);
                             }
                             try {
-                                Thread.sleep(500);
+                                Thread.sleep(delay);
                             } catch (InterruptedException e) {
                                 break;
                             }
@@ -391,7 +437,7 @@ public class MainActivity extends AppCompatActivity {
             // setup dialog: buttons, title etc
             AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(getActivity())
                     .setTitle("Send Text")
-                    .setNeutralButton("Done",
+                    .setPositiveButton("Done",
                             new DialogInterface.OnClickListener() {
                                 public void onClick(DialogInterface dialog, int whichButton) {
                                     dialog.dismiss();
@@ -440,6 +486,120 @@ public class MainActivity extends AppCompatActivity {
             editor.putString("f1", f1Input.getText().toString());
             editor.putString("f2", f2Input.getText().toString());
             editor.apply();
+        }
+    }
+
+    public static class SettingsDialogFragment extends DialogFragment {
+
+        private SharedPreferences sharedPreferences;
+        private RadioGroup movementReference;
+        private RadioGroup delaySetting;
+        private RadioGroup timeoutSetting;
+        private String movement;
+        private int delay;
+        private int timeout;
+
+        public SettingsDialogFragment() {
+        }
+
+        public static SettingsDialogFragment newInstance() {
+            return new SettingsDialogFragment();
+        }
+
+        @NonNull
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+            // setup dialog: buttons, title etc
+            AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(getActivity())
+                    .setTitle("Settings")
+                    .setPositiveButton("Done",
+                            new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int whichButton) {
+                                    dialog.dismiss();
+                                }
+                            }
+                    );
+
+            LayoutInflater inflater = getActivity().getLayoutInflater();
+            View view = inflater.inflate(R.layout.fragment_settings_dialog, null);
+
+            sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getActivity());
+
+            RadioButton checkedMovement = (RadioButton) view.findViewById(sharedPreferences.getInt("movementCheckedId", R.id.movement_robot));
+            checkedMovement.setChecked(true);
+            RadioButton checkedDelay = (RadioButton) view.findViewById(sharedPreferences.getInt("delayCheckedId", R.id.delay_short));
+            checkedDelay.setChecked(true);
+            RadioButton checkedTimeout = (RadioButton) view.findViewById(sharedPreferences.getInt("timeoutCheckedId", R.id.timeout_long));
+            checkedTimeout.setChecked(true);
+
+            movementReference = (RadioGroup) view.findViewById(R.id.movement_reference);
+            movementReference.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(RadioGroup radioGroup, @IdRes int i) {
+                    switch (i) {
+                        case R.id.movement_robot:
+                            movement = "robot";
+                            break;
+                        case R.id.movement_arena:
+                            movement = "arena";
+                            break;
+                    }
+                }
+            });
+
+            delaySetting = (RadioGroup) view.findViewById(R.id.delay);
+            delaySetting.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(RadioGroup radioGroup, @IdRes int i) {
+                    switch (i) {
+                        case R.id.delay_short:
+                            delay = 500;
+                            break;
+                        case R.id.delay_medium:
+                            delay = 750;
+                            break;
+                        case R.id.delay_long:
+                            delay = 1000;
+                            break;
+                    }
+                }
+            });
+
+            timeoutSetting = (RadioGroup) view.findViewById(R.id.timeout);
+            timeoutSetting.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(RadioGroup radioGroup, @IdRes int i) {
+                    switch (i) {
+                        case R.id.timeout_short:
+                            timeout = 2;
+                            break;
+                        case R.id.timeout_medium:
+                            timeout = 5;
+                            break;
+                        case R.id.timeout_long:
+                            timeout = 10;
+                            break;
+                    }
+                }
+            });
+
+            dialogBuilder.setView(view);
+
+            return dialogBuilder.create();
+        }
+
+        @Override
+        public void onDismiss(DialogInterface dialog) {
+            super.onDismiss(dialog);
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putString("movement", movement);
+            editor.putInt("movementCheckedId", movementReference.getCheckedRadioButtonId());
+            editor.putInt("delay", delay);
+            editor.putInt("delayCheckedId", delaySetting.getCheckedRadioButtonId());
+            editor.putInt("timeout", timeout);
+            editor.putInt("timeoutCheckedId", timeoutSetting.getCheckedRadioButtonId());
+            editor.apply();
+            ((MainActivity) getActivity()).refreshSettings();
         }
     }
 }

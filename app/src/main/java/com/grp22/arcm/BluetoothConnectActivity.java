@@ -6,13 +6,16 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.v4.app.FragmentManager;
 import android.support.v7.app.AppCompatActivity;
 import android.widget.Toast;
 
 public class BluetoothConnectActivity extends AppCompatActivity implements DeviceListFragment.OnFragmentInteractionListener {
 
+    private SharedPreferences sharedPreferences;
     private DeviceListFragment mDeviceListFragment;
     private BluetoothAdapter BTAdapter;
     private ResponseReceiver receiver;
@@ -25,6 +28,8 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_bluetooth_connect);
+
+        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
 
         BTAdapter = BluetoothAdapter.getDefaultAdapter();
         if (!BTAdapter.isEnabled()) {
@@ -72,6 +77,7 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
             BTAdapter.cancelDiscovery();
         Intent connectIntent = new Intent(this, BluetoothConnectService.class);
         connectIntent.putExtra("device", BTAdapter.getRemoteDevice(address));
+        connectIntent.putExtra("timeout", sharedPreferences.getInt("timeout", 10));
         startService(connectIntent);
     }
 
@@ -83,10 +89,12 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
                 Toast.makeText(getApplicationContext(), "Successfully connected", Toast.LENGTH_SHORT).show();
                 Intent begin = new Intent(getApplicationContext(), MainActivity.class);
                 startActivity(begin);
+                finish();
             }
             if (action.equals(BluetoothConnectService.CONNECT_FAIL)) {
                 Toast.makeText(getApplicationContext(), "Fail to connect", Toast.LENGTH_SHORT).show();
-                mDeviceListFragment.setSelection(true);
+                mDeviceListFragment.toggleConnect(true);
+                mDeviceListFragment.toggleSelection(true);
             }
         }
     }

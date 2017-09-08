@@ -93,7 +93,6 @@ public class DeviceListFragment extends Fragment {
                 filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
                 if (isChecked) {
                     mAdapter.clear();
-                    deviceItemListView.setAdapter(mAdapter);
                     Set<BluetoothDevice> pairedDevices = BTAdapter.getBondedDevices();
                     if (pairedDevices.size() > 0) {
                         for (BluetoothDevice device : pairedDevices) {
@@ -101,6 +100,7 @@ public class DeviceListFragment extends Fragment {
                             deviceItemList.add(newDevice);
                         }
                     }
+                    deviceItemListView.setAdapter(mAdapter);
                     getActivity().registerReceiver(bcReciever, filter);
                     BTAdapter.startDiscovery();
                     placeholder.removeView(view.findViewById(R.id.start_screen));
@@ -146,9 +146,12 @@ public class DeviceListFragment extends Fragment {
         mListener = null;
     }
 
-    public void setSelection(boolean isEnabled) {
+    public void toggleConnect(boolean isEnabled) {
         connect.setEnabled(isEnabled);
-        mAdapter.toggleSelection(isEnabled);
+    }
+
+    public void toggleSelection(boolean toggle) {
+        mAdapter.toggleSelection(toggle);
     }
 
     public interface OnFragmentInteractionListener {

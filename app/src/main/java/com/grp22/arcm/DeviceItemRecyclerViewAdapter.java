@@ -23,7 +23,7 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
 
     private List<DeviceItem> deviceItems;
     private Context context;
-    private static int selectedPosition = -1;
+    private int selectedPosition = -1;
     private String selectedAddress = null;
     private boolean isSelectionEnabled = true;
     private DeviceListFragment fragment;
@@ -37,6 +37,7 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
     @Override
     public void onAttachedToRecyclerView(RecyclerView recyclerView) {
         super.onAttachedToRecyclerView(recyclerView);
+        recyclerView.invalidate();
     }
 
     @Override
@@ -48,11 +49,11 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
 
     @Override
     public void onBindViewHolder(final DeviceItemViewHolder holder, final int position) {
-        Log.d("Ini", "kepanggil");
-        Log.d("Cur Adapter position", Integer.toString(position));
-        if (holder.getAdapterPosition() == selectedPosition) {
-            holder.card.setBackgroundResource(android.R.color.holo_blue_light);
+        if (position == selectedPosition) {
+            Log.d("Aku biru", Integer.toString(position));
+            holder.card.setCardBackgroundColor(ContextCompat.getColor(context, android.R.color.holo_blue_light));
         } else {
+            Log.d("Aku putih", Integer.toString(position));
             holder.card.setCardBackgroundColor(ContextCompat.getColor(context, R.color.cardview_light_background));
             holder.card.setRadius(context.getResources().getDimension(R.dimen.cardview_default_radius));
         }
@@ -61,14 +62,13 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
             public void onClick(View view) {
                 if (isSelectionEnabled) {
                     if (selectedPosition != holder.getAdapterPosition()) {
-                        notifyItemChanged(selectedPosition);
-                        Log.d("Notified", Integer.toString(selectedPosition));
-                        Log.d("Adapter position", Integer.toString(position));
+                        int previousPosition = selectedPosition;
                         selectedPosition = holder.getAdapterPosition();
                         selectedAddress = deviceItems.get(selectedPosition).getAddress();
                         Log.d("Selected position", Integer.toString(selectedPosition));
-                        fragment.setSelection(true);
+                        notifyItemChanged(previousPosition);
                         notifyItemChanged(selectedPosition);
+                        fragment.toggleConnect(true);
                     }
                 }
             }
@@ -117,7 +117,7 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
         Log.d("Selected position", Integer.toString(selectedPosition));
         selectedAddress = null;
         deviceItems.clear();
-        fragment.setSelection(false);
+        fragment.toggleConnect(false);
         notifyDataSetChanged();
     }
 
