@@ -48,7 +48,6 @@ public class MainActivity extends AppCompatActivity {
 
     private SharedPreferences sharedPreferences;
     private int delay;
-    private int timeout;
     private boolean isArena;
     private ResponseReceiver receiver;
     private IntentFilter filter;
@@ -86,7 +85,7 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-        sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        refreshSettings();
 
         status = (TextView) findViewById(R.id.status);
 
@@ -341,11 +340,15 @@ public class MainActivity extends AppCompatActivity {
 
     public void refreshSettings() {
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
-        delay = sharedPreferences.getInt("delay", 500);
         String movement = sharedPreferences.getString("movement", "robot");
+        Log.d("movement", movement);
         if (movement.equals("arena"))
             isArena = true;
-        timeout = sharedPreferences.getInt("timeout", 10);
+        delay = sharedPreferences.getInt("delay", 500);
+        Log.d("delay", Integer.toString(delay));
+        Log.d("timeout", Integer.toString(sharedPreferences.getInt("timeout", 10)));
+        if (mBound)
+            mService.setTimeout(sharedPreferences.getInt("timeout", 10));
     }
 
     public class ResponseReceiver extends BroadcastReceiver {
@@ -495,7 +498,8 @@ public class MainActivity extends AppCompatActivity {
         private RadioGroup movementReference;
         private RadioGroup delaySetting;
         private RadioGroup timeoutSetting;
-        private String movement;
+        private String movement = "robot";
+
         private int delay;
         private int timeout;
 
@@ -524,6 +528,8 @@ public class MainActivity extends AppCompatActivity {
             View view = inflater.inflate(R.layout.fragment_settings_dialog, null);
 
             sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getActivity());
+            delay = sharedPreferences.getInt("delay", 500);
+            timeout = sharedPreferences.getInt("timeout", 10);
 
             RadioButton checkedMovement = (RadioButton) view.findViewById(sharedPreferences.getInt("movementCheckedId", R.id.movement_robot));
             checkedMovement.setChecked(true);

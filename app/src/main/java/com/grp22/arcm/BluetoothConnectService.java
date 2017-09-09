@@ -203,6 +203,10 @@ public class BluetoothConnectService extends IntentService {
         }
     }
 
+    public void setTimeout(int timeout) {
+        this.timeout = timeout;
+    }
+
     public void stop() {
         tryReconnecting = false;
         try {
