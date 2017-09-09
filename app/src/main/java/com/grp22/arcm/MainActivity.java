@@ -341,9 +341,11 @@ public class MainActivity extends AppCompatActivity {
     public void refreshSettings() {
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         String movement = sharedPreferences.getString("movement", "robot");
-        Log.d("movement", movement);
         if (movement.equals("arena"))
             isArena = true;
+        else if (movement.equals("robot"))
+            isArena = false;
+        Log.d("isArena", String.valueOf(isArena));
         delay = sharedPreferences.getInt("delay", 500);
         Log.d("delay", Integer.toString(delay));
         Log.d("timeout", Integer.toString(sharedPreferences.getInt("timeout", 10)));
