@@ -12,6 +12,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.SystemClock;
@@ -20,6 +22,7 @@ import android.speech.RecognizerIntent;
 import android.support.annotation.IdRes;
 import android.support.annotation.NonNull;
 import android.support.v4.app.DialogFragment;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -89,7 +92,7 @@ public class MainActivity extends AppCompatActivity {
 
         status = (TextView) findViewById(R.id.status);
 
-        Button stopButton = (Button) findViewById(R.id.stop);
+        final Button stopButton = (Button) findViewById(R.id.stop);
         stopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -116,6 +119,10 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean isChecked) {
                 refreshMap.setEnabled(!isChecked);
+                if (isChecked)
+                    refreshMap.getCompoundDrawables()[0].setAlpha(63);
+                else
+                    refreshMap.getCompoundDrawables()[0].setAlpha(255);
             }
         });
 
@@ -167,6 +174,13 @@ public class MainActivity extends AppCompatActivity {
         progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
         progressDialog.setIndeterminate(true);
         progressDialog.setCanceledOnTouchOutside(false);
+        progressDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Disconnect Now", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                stopButton.callOnClick();
+                dialogInterface.dismiss();
+            }
+        });
     }
 
     @Override
@@ -396,6 +410,8 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public boolean onTouch(View view, MotionEvent event) {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                ((ImageButton) view).getDrawable().setColorFilter(ContextCompat.getColor(getApplicationContext(), android.R.color.white), PorterDuff.Mode.SRC_ATOP);
+                view.getBackground().setColorFilter(new PorterDuffColorFilter(ContextCompat.getColor(getApplicationContext(), android.R.color.holo_blue_light), PorterDuff.Mode.SRC_ATOP));
                 final int initialOrientation = orientation;
                 sendCommandThread = new Thread(new Runnable() {
                     @Override
@@ -415,8 +431,12 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
                 sendCommandThread.start();
-            } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL)
+            } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
+                view.getBackground().clearColorFilter();
+                view.getBackground().invalidateSelf();
+                ((ImageButton) view).getDrawable().setColorFilter(ContextCompat.getColor(getApplicationContext(), android.R.color.black), PorterDuff.Mode.SRC_ATOP);
                 sendCommandThread.interrupt();
+            }
             return true;
         }
     }
