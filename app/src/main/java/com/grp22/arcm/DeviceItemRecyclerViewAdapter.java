@@ -68,7 +68,7 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
                         Log.d("Selected position", Integer.toString(selectedPosition));
                         notifyItemChanged(previousPosition);
                         notifyItemChanged(selectedPosition);
-                        fragment.toggleConnect(true);
+                        fragment.toggleConnect(true);//
                     }
                 }
             }

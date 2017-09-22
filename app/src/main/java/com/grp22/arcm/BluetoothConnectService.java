@@ -1,7 +1,9 @@
 package com.grp22.arcm;
 
 import android.app.IntentService;
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
 import android.os.Binder;
@@ -20,13 +22,15 @@ import java.util.UUID;
 
 public class BluetoothConnectService extends IntentService {
 
+    private boolean connectAsServer;
     private BluetoothDevice device;
+    private BluetoothServerSocket serverSocket;
     private BluetoothSocket socket;
+    private BluetoothSocket clientSocket;
     private InputStream mmInStream;
     private OutputStream mmOutStream;
     private Intent broadcastIntent;
     private boolean tryReconnecting = true;
-    private boolean isStopped = false;
     private Runnable reconnectRunnable;
     private Thread reconnectThread;
     private int timeout;
@@ -59,32 +63,84 @@ public class BluetoothConnectService extends IntentService {
 
     @Override
     protected void onHandleIntent(Intent intent) {
-        // Use a temporary object that is later assigned to mmServerSocket
-        // because mmServerSocket is final.
         device = intent.getParcelableExtra("device");
         timeout = intent.getIntExtra("timeout", 10);
-        BluetoothSocket tmp = null;
-        try {
-            // MY_UUID is the app's UUID string, also used by the client code.
-            tmp = device.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
-        } catch (IOException e) {
-            Log.e("Error: ", "Socket's listen() method failed", e);
-        }
-        Log.d("Awalnya", "dari sini");
-        socket = tmp;
-        if (socket != null) {
+        connectAsServer = intent.getBooleanExtra("connectionMode", false);
+        Log.d("Pilihan:", Boolean.toString(connectAsServer));
+        if (connectAsServer) {
+            BluetoothServerSocket tmpServer = null;
+            try {
+                tmpServer = BluetoothAdapter.getDefaultAdapter().listenUsingInsecureRfcommWithServiceRecord("NAME", UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
+            } catch (IOException e) {
+                Log.e("Error: ", "Socket's listen() method failed", e);
+            }
+            serverSocket = tmpServer;
+            Log.d("Awalnya", "dari sini");
             while (true) {
-                try {
-                    socket.connect();
-                } catch (Exception e) {
-                    Log.e("Error: ", "Socket's accept() method failed", e);
+                if (serverSocket != null) {
+                    try {
+                        Log.d("Masuk", "ke sini");
+                        socket = serverSocket.accept(timeout * 1000);
+                    } catch (Exception e) {
+                        Log.e("Error: ", "Socket's accept() method failed", e);
+                        broadcastIntent = new Intent();
+                        broadcastIntent.setAction(CONNECT_FAIL);
+                        broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                        sendBroadcast(broadcastIntent);
+                        break;
+                    }
+                }
+                Log.d("Setelah itu", "ke sini");
+                if (socket != null) {
+                    if (socket.getRemoteDevice().getAddress().equals(device.getAddress())) {
+                        Intent broadcastIntent = new Intent();
+                        broadcastIntent.setAction(CONNECT_SUCCESS);
+                        broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                        sendBroadcast(broadcastIntent);
+                        tryReconnecting = true;
+                        setupStream();
+                        receiveFromInputStream();
+                        break;
+                    } else {
+                        try {
+                            socket.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                } else {
                     broadcastIntent = new Intent();
                     broadcastIntent.setAction(CONNECT_FAIL);
                     broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
                     sendBroadcast(broadcastIntent);
                     break;
                 }
-                if (socket != null) {
+            }
+        } else {
+            BluetoothSocket tmp = null;
+            try {
+                tmp = device.createInsecureRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
+            } catch (IOException e) {
+                Log.e("Error: ", "Socket's listen() method failed", e);
+            }
+            clientSocket = tmp;
+            Log.d("Awalnya", "dari sini");
+            while (true) {
+                if (clientSocket != null) {
+                    try {
+                        Log.d("Masuk", "ke sini");
+                        clientSocket.connect();
+                    } catch (Exception e) {
+                        Log.e("Error: ", "Socket's connect() method failed", e);
+                        broadcastIntent = new Intent();
+                        broadcastIntent.setAction(CONNECT_FAIL);
+                        broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                        sendBroadcast(broadcastIntent);
+                        break;
+                    }
+                }
+                Log.d("Setelah itu", "ke sini");
+                if (clientSocket != null) {
                     Intent broadcastIntent = new Intent();
                     broadcastIntent.setAction(CONNECT_SUCCESS);
                     broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
@@ -102,16 +158,24 @@ public class BluetoothConnectService extends IntentService {
         InputStream tmpIn = null;
         OutputStream tmpOut = null;
 
-        if (reconnectThread != null)
+        if (reconnectThread != null) {
             reconnectThread.interrupt();
+            reconnectThread = null;
+        }
 
         try {
-            tmpIn = socket.getInputStream();
+            if (connectAsServer)
+                tmpIn = socket.getInputStream();
+            else
+                tmpIn = clientSocket.getInputStream();
         } catch (IOException e) {
             Log.e("error", "Error occurred when creating input stream", e);
         }
         try {
-            tmpOut = socket.getOutputStream();
+            if (connectAsServer)
+                tmpOut = socket.getOutputStream();
+            else
+                tmpOut = clientSocket.getOutputStream();
         } catch (IOException e) {
             Log.e("error", "Error occurred when creating output stream", e);
         }
@@ -127,70 +191,129 @@ public class BluetoothConnectService extends IntentService {
 
         Log.d("Macet", "di sini");
 
-        // Keep listening to the InputStream until an exception occurs.
-        while (true) {
-            try {
-                // Read from the InputStream.
-                numBytes = mmInStream.read(mmBuffer);
-                String message = new String(mmBuffer, 0, numBytes);
-                Log.d("Message -> ", message);
-                // Send the obtained bytes to the UI activity.
-                broadcastIntent = new Intent();
-                broadcastIntent.setAction(STRING_RECEIVED);
-                broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
-                broadcastIntent.putExtra("message", message);
-                sendBroadcast(broadcastIntent);
-            } catch (IOException e) {
-                Log.d("Bisa", "ke sini");
-                e.printStackTrace();
-                if (tryReconnecting) {
+        if (connectAsServer) {
+            while (true) {
+                try {
+                    // Read from the InputStream.
+                    numBytes = mmInStream.read(mmBuffer);
+                    String message = new String(mmBuffer, 0, numBytes);
+                    Log.d("Message -> ", message);
+                    // Send the obtained bytes to the UI activity.
                     broadcastIntent = new Intent();
-                    broadcastIntent.setAction(CONNECTION_INTERRUPTED);
+                    broadcastIntent.setAction(STRING_RECEIVED);
                     broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                    broadcastIntent.putExtra("message", message);
                     sendBroadcast(broadcastIntent);
-                }
-                reconnectRunnable = new Runnable() {
-                    @Override
-                    public void run() {
+                } catch (IOException e) {
+                    Log.d("Bisa", "ke sini");
+                    e.printStackTrace();
+                    if (tryReconnecting) {
+                        broadcastIntent = new Intent();
+                        broadcastIntent.setAction(CONNECTION_INTERRUPTED);
+                        broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                        sendBroadcast(broadcastIntent);
+                    }
+                    try {
+                        mmInStream.close();
+                        mmOutStream.close();
+                        if (socket != null)
+                            socket.close();
+                        socket = null;
+                        if (serverSocket != null)
+                            serverSocket.close();
+                        serverSocket = null;
+                    } catch (IOException error) {
+                        // *shrugs*
+                    }
+                    if (tryReconnecting) {
                         try {
-                            mmInStream.close();
-                            mmOutStream.close();
-                            socket = null;
-                            socket = device.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
-                            socket.connect();
+                            serverSocket = BluetoothAdapter.getDefaultAdapter().listenUsingInsecureRfcommWithServiceRecord("TEST", UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
+                            socket = serverSocket.accept(timeout * 1000);
                         } catch (IOException exception) {
                             // Nothing can be done
                         }
-                        if (socket.isConnected()) {
+                        if (socket != null && socket.isConnected() && socket.getRemoteDevice().getAddress().equals(device.getAddress())) {
                             broadcastIntent = new Intent();
                             broadcastIntent.setAction(CONNECTION_RECOVERED);
                             broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
                             sendBroadcast(broadcastIntent);
+                            tryReconnecting = true;
                             setupStream();
                             receiveFromInputStream();
-                        }
-                    }
-                };
-                reconnectThread = new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        long startTime = System.currentTimeMillis();
-                        while (true) {
-                            SystemClock.sleep(100);
-                            reconnectRunnable.run();
-                            long timeElapsed = System.currentTimeMillis() - startTime;
-                            if (socket.isConnected() || !tryReconnecting || timeElapsed >= timeout * 1000)
-                                break;
-                        }
-                        if (!socket.isConnected()) {
+                            break;
+                        } else {
                             stop();
-                            reconnectThread.interrupt();
+                            break;
                         }
                     }
-                });
-                if (tryReconnecting)
-                    reconnectThread.start();
-                break;
+                    break;
+                }
+            }
+        } else {
+            while (true) {
+                try {
+                    // Read from the InputStream.
+                    numBytes = mmInStream.read(mmBuffer);
+                    String message = new String(mmBuffer, 0, numBytes);
+                    Log.d("Message -> ", message);
+                    // Send the obtained bytes to the UI activity.
+                    broadcastIntent = new Intent();
+                    broadcastIntent.setAction(STRING_RECEIVED);
+                    broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                    broadcastIntent.putExtra("message", message);
+                    sendBroadcast(broadcastIntent);
+                } catch (IOException e) {
+                    Log.d("Bisa", "ke sini");
+                    e.printStackTrace();
+                    if (tryReconnecting) {
+                        broadcastIntent = new Intent();
+                        broadcastIntent.setAction(CONNECTION_INTERRUPTED);
+                        broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                        sendBroadcast(broadcastIntent);
+                    }
+                    reconnectRunnable = new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                mmInStream.close();
+                                mmOutStream.close();
+                                clientSocket = null;
+                                clientSocket = device.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
+                                clientSocket.connect();
+                            } catch (IOException exception) {
+                                // Nothing can be done
+                            }
+                            if (clientSocket.isConnected()) {
+                                broadcastIntent = new Intent();
+                                broadcastIntent.setAction(CONNECTION_RECOVERED);
+                                broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                                sendBroadcast(broadcastIntent);
+                                setupStream();
+                                receiveFromInputStream();
+                            }
+                        }
+                    };
+                    reconnectThread = new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            long startTime = System.currentTimeMillis();
+                            while (true) {
+                                SystemClock.sleep(100);
+                                reconnectRunnable.run();
+                                long timeElapsed = System.currentTimeMillis() - startTime;
+                                if (clientSocket.isConnected() || !tryReconnecting || timeElapsed >= timeout * 1000)
+                                    break;
+                            }
+                            if (!clientSocket.isConnected()) {
+                                stop();
+                                reconnectThread.interrupt();
+                            }
+                        }
+                    });
+                    if (tryReconnecting)
+                        reconnectThread.start();
+                    break;
+                }
             }
         }
     }
@@ -216,6 +339,10 @@ public class BluetoothConnectService extends IntentService {
                 mmOutStream.close();
             if (socket != null)
                 socket.close();
+            if (clientSocket != null)
+                clientSocket.close();
+            if (serverSocket != null)
+                serverSocket.close();
         } catch (IOException e) {
             Log.e("Error", "Could not close the connect socket", e);
         } finally {
@@ -224,7 +351,6 @@ public class BluetoothConnectService extends IntentService {
             broadcastIntent.setAction(DISCONNECTED);
             broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
             sendBroadcast(broadcastIntent);
-            isStopped = true;
         }
     }
 }

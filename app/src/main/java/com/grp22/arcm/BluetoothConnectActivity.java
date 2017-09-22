@@ -11,6 +11,7 @@ import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.v4.app.FragmentManager;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.widget.Toast;
 
 public class BluetoothConnectActivity extends AppCompatActivity implements DeviceListFragment.OnFragmentInteractionListener {
@@ -53,6 +54,7 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
         receiver = new ResponseReceiver();
         registerReceiver(receiver, filter);
         isRegistered = true;
+        Log.d("Registered", "woo-hoo");
     }
 
     @Override
@@ -72,12 +74,13 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
     }
 
     @Override
-    public void startConnection(String address) {
+    public void startConnection(String address, boolean connectAsServer) {
         if (BTAdapter.isDiscovering())
             BTAdapter.cancelDiscovery();
         Intent connectIntent = new Intent(this, BluetoothConnectService.class);
         connectIntent.putExtra("device", BTAdapter.getRemoteDevice(address));
         connectIntent.putExtra("timeout", sharedPreferences.getInt("timeout", 10));
+        connectIntent.putExtra("connectionMode", connectAsServer);
         startService(connectIntent);
     }
 
@@ -94,6 +97,7 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
             if (action.equals(BluetoothConnectService.CONNECT_FAIL)) {
                 Toast.makeText(getApplicationContext(), "Fail to connect", Toast.LENGTH_SHORT).show();
                 mDeviceListFragment.toggleConnect(true);
+                mDeviceListFragment.toggleConnectionMode(true);
                 mDeviceListFragment.toggleSelection(true);
             }
         }

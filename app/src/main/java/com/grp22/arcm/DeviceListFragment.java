@@ -7,16 +7,19 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.support.annotation.IdRes;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.FrameLayout;
+import android.widget.RadioGroup;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
@@ -30,6 +33,8 @@ public class DeviceListFragment extends Fragment {
     private DeviceItemRecyclerViewAdapter mAdapter;
     private FrameLayout placeholder;
     private RecyclerView deviceItemListView;
+    private RadioGroup connectMethod;
+    private boolean connectAsServer;
     private ToggleButton scan;
     private Button connect;
 
@@ -84,6 +89,23 @@ public class DeviceListFragment extends Fragment {
         deviceItemListView.setBackground(ContextCompat.getDrawable(getContext(), R.drawable.border));
         deviceItemListView.setAdapter(mAdapter);
 
+        connectMethod = (RadioGroup) view.findViewById(R.id.connection_mode);
+        connectMethod.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(RadioGroup radioGroup, @IdRes int i) {
+                switch (i) {
+                    case R.id.client_mode:
+                        Log.d("Ini", "kepanggil");
+                        connectAsServer = false;
+                        break;
+                    case R.id.server_mode:
+                        Log.d("Ini", "kepanggil");
+                        connectAsServer = true;
+                        break;
+                }
+            }
+        });
+
         scan = (ToggleButton) view.findViewById(R.id.scan);
         scan.setText("scan");
         scan.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
@@ -120,8 +142,12 @@ public class DeviceListFragment extends Fragment {
                 }
                 mAdapter.toggleSelection(false);
                 connect.setEnabled(false);
-                mListener.startConnection(mAdapter.getSelectedAddress());
-                Toast.makeText(getContext(), "Connecting...", Toast.LENGTH_SHORT).show();
+                toggleConnectionMode(false);
+                mListener.startConnection(mAdapter.getSelectedAddress(), connectAsServer);
+                if (connectAsServer)
+                    Toast.makeText(getContext(), "Waiting for device to connect...", Toast.LENGTH_SHORT).show();
+                else
+                    Toast.makeText(getContext(), "Connecting...", Toast.LENGTH_SHORT).show();
             }
         });
         connect.setEnabled(false);
@@ -150,6 +176,11 @@ public class DeviceListFragment extends Fragment {
         connect.setEnabled(isEnabled);
     }
 
+    public void toggleConnectionMode(boolean isEnabled) {
+        for (int i = 0; i < connectMethod.getChildCount(); i++)
+            connectMethod.getChildAt(i).setEnabled(isEnabled);
+    }
+
     public void toggleSelection(boolean toggle) {
         mAdapter.toggleSelection(toggle);
     }
@@ -157,6 +188,6 @@ public class DeviceListFragment extends Fragment {
     public interface OnFragmentInteractionListener {
         void startPairing(String address);
 
-        void startConnection(String address);
+        void startConnection(String address, boolean connectAsServer);
     }
 }
