@@ -25,18 +25,25 @@ import android.support.v4.app.DialogFragment;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.ActionMode;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.GridView;
 import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
@@ -55,6 +62,11 @@ public class MainActivity extends AppCompatActivity {
     private ResponseReceiver receiver;
     private IntentFilter filter;
     private TextView status;
+    private RelativeLayout header;
+    private RelativeLayout footer;
+    private LinearLayout actionModeTop;
+    private RelativeLayout actionModeMid;
+    private LinearLayout actionModeBottom;
     private BluetoothConnectService mService;
     private boolean mBound = false;
     private boolean isRegistered = false;
@@ -64,6 +76,11 @@ public class MainActivity extends AppCompatActivity {
     private int orientation = 0; // 0 = up, 1 = right, 2 = down, 3 = left
     private final SpeechCommandProcessor processor = new SpeechCommandProcessor();
     private final Object lock = new Object();
+    private ArrayList<String> mapDescriptor;
+    private String mapDescriptor1;
+    private String mapDescriptor2;
+    private Integer[] list = new Integer[300];
+    private GridView gridView;
 
     private ServiceConnection mConnection = new ServiceConnection() {
 
@@ -82,6 +99,125 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    private ActionMode.Callback mCallback = new ActionMode.Callback() {
+        MapAdapter mapAdapter;
+
+        @Override
+        public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+            return false;
+        }
+
+        @Override
+        public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+            mode.setTitle("Set Waypoint");
+            MenuInflater inflater = mode.getMenuInflater();
+            inflater.inflate(R.menu.action_mode, menu);
+            mapAdapter = (MapAdapter) gridView.getAdapter();
+            toggleViewGroupVisibility(header, View.INVISIBLE);
+            toggleViewGroupVisibility(footer, View.INVISIBLE);
+            toggleViewGroupVisibility(actionModeTop, View.VISIBLE);
+            toggleViewGroupVisibility(actionModeMid, View.VISIBLE);
+            toggleViewGroupVisibility(actionModeBottom, View.VISIBLE);
+            final ToggleButton wayPoint = (ToggleButton) findViewById(R.id.toggle_waypoint);
+            final ToggleButton position = (ToggleButton) findViewById(R.id.toggle_robot_position);
+            final ImageButton rotateLeft = (ImageButton) findViewById(R.id.set_rotate_left);
+            final ImageButton rotateRight = (ImageButton) findViewById(R.id.set_rotate_right);
+            if (mapAdapter.getSelectionMode() == 0) {
+                wayPoint.setChecked(true);
+                position.setChecked(false);
+                rotateLeft.setVisibility(View.INVISIBLE);
+                rotateRight.setVisibility(View.INVISIBLE);
+            } else if (mapAdapter.getSelectionMode() == 1) {
+                rotateLeft.setVisibility(View.VISIBLE);
+                rotateRight.setVisibility(View.VISIBLE);
+                wayPoint.setChecked(false);
+                position.setChecked(true);
+            }
+            wayPoint.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
+                    if (b) {
+                        position.setChecked(!b);
+                        rotateLeft.setVisibility(View.INVISIBLE);
+                        rotateRight.setVisibility(View.INVISIBLE);
+                        mapAdapter.setSelectionMode(0);
+
+                    }
+                }
+            });
+            position.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
+                    if (b) {
+                        wayPoint.setChecked(!b);
+                        rotateLeft.setVisibility(View.VISIBLE);
+                        rotateRight.setVisibility(View.VISIBLE);
+                        mapAdapter.setSelectionMode(1);
+                    }
+                }
+            });
+            rotateLeft.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    mapAdapter.updateOrientation(false);
+                }
+            });
+            rotateRight.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    mapAdapter.updateOrientation(true);
+                }
+            });
+            ((TextView) findViewById(R.id.waypoint)).setText(mapAdapter.getWaypointCoordinate());
+            ((TextView) findViewById(R.id.robot_position)).setText(mapAdapter.getRobotCoordinate());
+            return true;
+        }
+
+        @Override
+        public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+            boolean ret = false;
+            if (item.getItemId() == R.id.action_mode_cancel) {
+                mode.finish();
+                mapAdapter.setSelectionEnabled(false);
+                toggleViewGroupVisibility(header, View.VISIBLE);
+                toggleViewGroupVisibility(footer, View.VISIBLE);
+                toggleViewGroupVisibility(actionModeTop, View.INVISIBLE);
+                toggleViewGroupVisibility(actionModeMid, View.INVISIBLE);
+                toggleViewGroupVisibility(actionModeBottom, View.INVISIBLE);
+                String startingCoordinate = mapAdapter.getRobotCoordinate();
+                if (!startingCoordinate.equals("N/A"))
+                    mService.sendToOutputStream("SP, " + startingCoordinate);
+                String waypointCoordinate = mapAdapter.getWaypointCoordinate();
+                if (!waypointCoordinate.equals("N/A"))
+                    mService.sendToOutputStream("WP, " + waypointCoordinate);
+                ret = true;
+            } else if (item.getItemId() == R.id.action_mode_clear) {
+                mapAdapter.clearWaypoint();
+            }
+            return ret;
+        }
+
+        @Override
+        public void onDestroyActionMode(ActionMode actionMode) {
+            mapAdapter.setSelectionEnabled(false);
+            toggleViewGroupVisibility(header, View.VISIBLE);
+            toggleViewGroupVisibility(footer, View.VISIBLE);
+            toggleViewGroupVisibility(actionModeTop, View.INVISIBLE);
+            toggleViewGroupVisibility(actionModeMid, View.INVISIBLE);
+            toggleViewGroupVisibility(actionModeBottom, View.INVISIBLE);
+        }
+    };
+
+    private void toggleViewGroupVisibility(ViewGroup vg, int visibility) {
+        for (int i = 0; i < vg.getChildCount(); i++) {
+            View child = vg.getChildAt(i);
+            child.setVisibility(visibility);
+            if (child instanceof ViewGroup) {
+                toggleViewGroupVisibility((ViewGroup) child, visibility);
+            }
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -90,7 +226,18 @@ public class MainActivity extends AppCompatActivity {
 
         refreshSettings();
 
+        mapDescriptor = new ArrayList<>();
+
         status = (TextView) findViewById(R.id.status);
+
+        header = (RelativeLayout) findViewById(R.id.header);
+        footer = (RelativeLayout) findViewById(R.id.footer);
+        actionModeTop = (LinearLayout) findViewById(R.id.action_mode_top);
+        toggleViewGroupVisibility(actionModeTop, View.INVISIBLE);
+        actionModeMid = (RelativeLayout) findViewById(R.id.action_mode_mid);
+        toggleViewGroupVisibility(actionModeMid, View.INVISIBLE);
+        actionModeBottom = (LinearLayout) findViewById(R.id.action_mode_bottom);
+        toggleViewGroupVisibility(actionModeBottom, View.INVISIBLE);
 
         final Button stopButton = (Button) findViewById(R.id.stop);
         stopButton.setOnClickListener(new View.OnClickListener() {
@@ -109,6 +256,20 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 SendTextDialogFragment dialogFragment = SendTextDialogFragment.newInstance();
                 dialogFragment.show(getSupportFragmentManager(), "Send Text");
+            }
+        });
+
+        gridView = (GridView) findViewById(R.id.map);
+        MapAdapter adapter = new MapAdapter(MainActivity.this, R.layout.row_grid, list);
+        gridView.setAdapter(adapter);
+
+        Button setWaypoint = (Button) findViewById(R.id.set_waypoint);
+        setWaypoint.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                MapAdapter mapAdapter = (MapAdapter) gridView.getAdapter();
+                mapAdapter.setSelectionEnabled(true);
+                startActionMode(mCallback);
             }
         });
 
@@ -341,8 +502,21 @@ public class MainActivity extends AppCompatActivity {
                 synchronized (lock) {
                     orientation = positions[2] / 90;
                 }
+                MapAdapter mapAdapter = (MapAdapter) gridView.getAdapter();
+                mapAdapter.setRobotPosition((20 - positions[1]) * 15 + positions[0] - 1);
+                mapAdapter.notifyDataSetChanged();
             } else if (inputJsonObject.has("grid")) {
-                status.setText("MAP UPDATED");
+                synchronized (lock) {
+                    mapDescriptor.add("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
+                    mapDescriptor.add(inputJsonObject.getString("grid"));
+                    if (mapDescriptor.size() == 2) {
+                        mapDescriptor1 = mapDescriptor.get(0);
+                        mapDescriptor2 = mapDescriptor.get(1);
+                        updateMap();
+                        status.setText("MAP UPDATED");
+                        mapDescriptor.clear();
+                    }
+                }
             } else if (inputJsonObject.has("status")) {
                 String statusText = inputJsonObject.getString("status");
                 status.setText(statusText.toUpperCase());
@@ -350,6 +524,26 @@ public class MainActivity extends AppCompatActivity {
         } catch (JSONException e) {
             e.printStackTrace();
         }
+    }
+
+    private void updateMap() {
+        String mapDescriptor1Raw = MapDecoder.decode(mapDescriptor1, true);
+        String mapDescriptor2Raw = MapDecoder.decode(mapDescriptor2, false);
+
+        MapAdapter mapAdapter = (MapAdapter) gridView.getAdapter();
+
+        int index = 0;
+        for (int i = 0; i < mapDescriptor1Raw.length(); i++) {
+            char c = mapDescriptor1Raw.charAt(i);
+            if (c == '1') {
+                mapAdapter.markExplored(i);
+                char ch = mapDescriptor2Raw.charAt(index);
+                if (ch == '1')
+                    mapAdapter.markObstacle(i);
+                index++;
+            }
+        }
+        mapAdapter.notifyDataSetChanged();
     }
 
     public void refreshSettings() {
@@ -441,6 +635,166 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public class MapAdapter extends ArrayAdapter {
+        Context context;
+        Object[] items;
+        int resource;
+        int waypointPosition = -1;
+        int robotPosition = -100;
+        ArrayList<Integer> explored = new ArrayList<>();
+        ArrayList<Integer> obstacle = new ArrayList<>();
+
+        final float scale = getContext().getResources().getDisplayMetrics().density;
+        int pixels = (int) (30 * scale + 0.5f);
+
+        LayoutInflater inflater;
+
+        boolean selectionEnabled = false;
+        int toggleSelection = 0; // 0 = waypoint, 1 = robot position
+
+        public MapAdapter(Context context, int resource, Object[] items) {
+            super(context, resource, items);
+            this.context = context;
+            this.resource = resource;
+            this.items = items;
+
+            inflater = (LayoutInflater) this.context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        }
+
+        public void setSelectionEnabled(boolean selectionEnabled) {
+            this.selectionEnabled = selectionEnabled;
+        }
+
+        public void setSelectionMode(int mode) {
+            this.toggleSelection = mode;
+        }
+
+        public int getSelectionMode() {
+            return this.toggleSelection;
+        }
+
+        public void setRobotPosition(int position) {
+            this.robotPosition = position;
+        }
+
+        public void clearWaypoint() {
+            waypointPosition = -1;
+            ((TextView) findViewById(R.id.waypoint)).setText(getWaypointCoordinate());
+            notifyDataSetChanged();
+        }
+
+        public String getWaypointCoordinate() {
+            if (waypointPosition > 0)
+                return (20 - waypointPosition / 15) + ", " + (waypointPosition % 15 + 1);
+            else
+                return "N/A";
+        }
+
+        public String getRobotCoordinate() {
+            if (robotPosition > 0)
+                return (20 - robotPosition / 15) + ", " + (robotPosition % 15 + 1) + ", " + orientation * 90;
+            else
+                return "N/A";
+        }
+
+        public void updateOrientation(boolean toggle) {
+            if (toggle)
+                orientation = (orientation + 1) % 4;
+            else
+                orientation = (orientation - 1) % 4;
+            ((TextView) findViewById(R.id.robot_position)).setText(getRobotCoordinate());
+            notifyDataSetChanged();
+        }
+
+        private void markExplored(int position) {
+            explored.add(position);
+        }
+
+        private void markObstacle(int position) {
+            obstacle.add(position);
+        }
+
+        @Override
+        public int getCount() {
+            return items.length;
+        }
+
+        @Override
+        public Object getItem(int position) {
+            return items[position];
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(final int position, View convertView, ViewGroup parent) {
+            if (convertView == null) {
+                // If convertView is null then inflate the appropriate layout file
+                convertView = inflater.inflate(resource, null);
+            }
+
+            convertView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    if (selectionEnabled) {
+                        if (toggleSelection == 0) {
+                            waypointPosition = position;
+                            ((TextView) findViewById(R.id.waypoint)).setText(getWaypointCoordinate());
+                        } else if (toggleSelection == 1) {
+                            if (!(position % 15 > 12 || position / 15 < 2)) {
+                                robotPosition = position;
+                                ((TextView) findViewById(R.id.robot_position)).setText(getRobotCoordinate());
+                            }
+                        }
+                    }
+                    notifyDataSetChanged();
+                }
+            });
+
+            ImageView robotOrientation = (ImageView) convertView.findViewById(R.id.cell_image);
+            robotOrientation.setImageResource(0);
+
+            // Layer 1: Obstacle/empty/unexploted
+            if (obstacle.contains(position))
+                convertView.setBackgroundResource(R.drawable.obstacle);
+            else if (explored.contains(position))
+                convertView.setBackgroundResource(R.drawable.empty);
+            else
+                convertView.setBackgroundResource(R.drawable.empty_unexplored);
+
+            // Layer 2: Waypoint, home & goal
+            if (position == waypointPosition)
+                convertView.setBackgroundResource(R.drawable.way_point);
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 3; j++) {
+                    if (position == ((20 - 1) - i) * 15 + j)
+                        convertView.setBackgroundResource(R.drawable.home);
+                    else if (position == (i * 15 + (14 - j)))
+                        convertView.setBackgroundResource(R.drawable.goal);
+                }
+            }
+
+            // Layer 3: Robot
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 3; j++) {
+                    if (position == (robotPosition - i * 15) + j)
+                        convertView.setBackgroundResource(R.drawable.robot);
+                }
+            }
+            if (position == robotPosition - 14) {
+                robotOrientation.setImageResource(R.drawable.ic_navigation_white_48px);
+                robotOrientation.setRotation(orientation * 90);
+            }
+
+            // Set height and width constraints for the image view
+            //convertView.setLayoutParams(new LinearLayout.LayoutParams(pixels, pixels));
+            return convertView;
+        }
+    }
+
     public static class SendTextDialogFragment extends DialogFragment implements View.OnClickListener {
 
         private SharedPreferences sharedPreferences;
@@ -520,7 +874,7 @@ public class MainActivity extends AppCompatActivity {
         private RadioGroup movementReference;
         private RadioGroup delaySetting;
         private RadioGroup timeoutSetting;
-        private String movement = "robot";
+        private String movement;
 
         private int delay;
         private int timeout;
@@ -550,15 +904,42 @@ public class MainActivity extends AppCompatActivity {
             View view = inflater.inflate(R.layout.fragment_settings_dialog, null);
 
             sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getActivity());
+            movement = sharedPreferences.getString("movement", "robot");
             delay = sharedPreferences.getInt("delay", 500);
             timeout = sharedPreferences.getInt("timeout", 10);
 
-            RadioButton checkedMovement = (RadioButton) view.findViewById(sharedPreferences.getInt("movementCheckedId", R.id.movement_robot));
-            checkedMovement.setChecked(true);
-            RadioButton checkedDelay = (RadioButton) view.findViewById(sharedPreferences.getInt("delayCheckedId", R.id.delay_short));
-            checkedDelay.setChecked(true);
-            RadioButton checkedTimeout = (RadioButton) view.findViewById(sharedPreferences.getInt("timeoutCheckedId", R.id.timeout_long));
-            checkedTimeout.setChecked(true);
+            switch (movement) {
+                case "robot":
+                    ((RadioButton) ((RadioGroup) view.findViewById(R.id.movement_reference)).findViewById(R.id.movement_robot)).setChecked(true);
+                    break;
+                case "arena":
+                    ((RadioButton) ((RadioGroup) view.findViewById(R.id.movement_reference)).findViewById(R.id.movement_arena)).setChecked(true);
+                    break;
+            }
+
+            switch (delay) {
+                case 500:
+                    ((RadioButton) ((RadioGroup) view.findViewById(R.id.delay)).findViewById(R.id.delay_short)).setChecked(true);
+                    break;
+                case 750:
+                    ((RadioButton) ((RadioGroup) view.findViewById(R.id.delay)).findViewById(R.id.delay_medium)).setChecked(true);
+                    break;
+                case 100:
+                    ((RadioButton) ((RadioGroup) view.findViewById(R.id.delay)).findViewById(R.id.delay_long)).setChecked(true);
+                    break;
+            }
+
+            switch (timeout) {
+                case 2:
+                    ((RadioButton) ((RadioGroup) view.findViewById(R.id.timeout)).findViewById(R.id.timeout_short)).setChecked(true);
+                    break;
+                case 5:
+                    ((RadioButton) ((RadioGroup) view.findViewById(R.id.timeout)).findViewById(R.id.timeout_medium)).setChecked(true);
+                    break;
+                case 10:
+                    ((RadioButton) ((RadioGroup) view.findViewById(R.id.timeout)).findViewById(R.id.timeout_long)).setChecked(true);
+                    break;
+            }
 
             movementReference = (RadioGroup) view.findViewById(R.id.movement_reference);
             movementReference.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
@@ -621,11 +1002,8 @@ public class MainActivity extends AppCompatActivity {
             super.onDismiss(dialog);
             SharedPreferences.Editor editor = sharedPreferences.edit();
             editor.putString("movement", movement);
-            editor.putInt("movementCheckedId", movementReference.getCheckedRadioButtonId());
             editor.putInt("delay", delay);
-            editor.putInt("delayCheckedId", delaySetting.getCheckedRadioButtonId());
             editor.putInt("timeout", timeout);
-            editor.putInt("timeoutCheckedId", timeoutSetting.getCheckedRadioButtonId());
             editor.apply();
             ((MainActivity) getActivity()).refreshSettings();
         }
