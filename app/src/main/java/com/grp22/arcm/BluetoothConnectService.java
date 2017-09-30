@@ -83,6 +83,11 @@ public class BluetoothConnectService extends IntentService {
                         socket = serverSocket.accept(timeout * 1000);
                     } catch (Exception e) {
                         Log.e("Error: ", "Socket's accept() method failed", e);
+                        try {
+                            serverSocket.close();
+                        } catch (IOException error) {
+                            error.printStackTrace();
+                        }
                         broadcastIntent = new Intent();
                         broadcastIntent.setAction(CONNECT_FAIL);
                         broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);

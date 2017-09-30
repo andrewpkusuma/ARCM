@@ -200,7 +200,7 @@
                 android:layout_height="wrap_content"
                 android:drawableStart="@drawable/ic_pin_drop_black_48px"
                 android:gravity="start|center_vertical"
-                android:text=" Set Waypoint"/>
+                android:text=" Set Coordinates"/>
             <Button
                 android:id="@+id/show_fastest_path"
                 android:layout_width="wrap_content"

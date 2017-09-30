@@ -67,9 +67,12 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout actionModeTop;
     private RelativeLayout actionModeMid;
     private LinearLayout actionModeBottom;
+    private Button refreshMap;
+    private ToggleButton toggleRefresh;
     private BluetoothConnectService mService;
     private boolean mBound = false;
     private boolean isRegistered = false;
+    private boolean[] allowManualUpdate = {false, false};
     private ProgressDialog progressDialog;
     private boolean isPreviouslyRecovered;
     private final int REQ_CODE_SPEECH_INPUT = 69;
@@ -109,7 +112,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public boolean onCreateActionMode(ActionMode mode, Menu menu) {
-            mode.setTitle("Set Waypoint");
+            mode.setTitle("Set Coordinates");
             MenuInflater inflater = mode.getMenuInflater();
             inflater.inflate(R.menu.action_mode, menu);
             mapAdapter = (MapAdapter) gridView.getAdapter();
@@ -184,12 +187,18 @@ public class MainActivity extends AppCompatActivity {
                 toggleViewGroupVisibility(actionModeTop, View.INVISIBLE);
                 toggleViewGroupVisibility(actionModeMid, View.INVISIBLE);
                 toggleViewGroupVisibility(actionModeBottom, View.INVISIBLE);
-                String startingCoordinate = mapAdapter.getRobotCoordinate();
-                if (!startingCoordinate.equals("N/A"))
-                    mService.sendToOutputStream("SP, " + startingCoordinate);
-                String waypointCoordinate = mapAdapter.getWaypointCoordinate();
-                if (!waypointCoordinate.equals("N/A"))
-                    mService.sendToOutputStream("WP, " + waypointCoordinate);
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        String startingCoordinate = mapAdapter.getRobotCoordinate();
+                        if (!startingCoordinate.equals("N/A"))
+                            mService.sendToOutputStream("SP, " + startingCoordinate);
+                        SystemClock.sleep(delay);
+                        String waypointCoordinate = mapAdapter.getWaypointCoordinate();
+                        if (!waypointCoordinate.equals("N/A"))
+                            mService.sendToOutputStream("WP, " + waypointCoordinate);
+                    }
+                }).start();
                 ret = true;
             } else if (item.getItemId() == R.id.action_mode_clear) {
                 mapAdapter.clearWaypoint();
@@ -273,9 +282,17 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        final Button refreshMap = (Button) findViewById(R.id.refresh_map);
+        refreshMap = (Button) findViewById(R.id.refresh_map);
+        refreshMap.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mService.sendToOutputStream("sendArenaInfo");
+                allowManualUpdate[0] = true;
+                allowManualUpdate[1] = true;
+            }
+        });
 
-        ToggleButton toggleRefresh = (ToggleButton) findViewById(R.id.toggle_refresh);
+        toggleRefresh = (ToggleButton) findViewById(R.id.toggle_refresh);
         toggleRefresh.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean isChecked) {
@@ -379,6 +396,21 @@ public class MainActivity extends AppCompatActivity {
         receiver = new ResponseReceiver();
         registerReceiver(receiver, filter);
         isRegistered = true;
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (refreshMap.getCompoundDrawables()[0] == null) {
+                    SystemClock.sleep(10);
+                }
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        toggleRefresh.setChecked(true);
+                    }
+                });
+            }
+        }).start();
     }
 
     @Override
@@ -502,10 +534,14 @@ public class MainActivity extends AppCompatActivity {
                 synchronized (lock) {
                     orientation = positions[2] / 90;
                 }
-                MapAdapter mapAdapter = (MapAdapter) gridView.getAdapter();
-                mapAdapter.setRobotPosition((20 - positions[1]) * 15 + positions[0] - 1);
-                mapAdapter.notifyDataSetChanged();
-            } else if (inputJsonObject.has("grid")) {
+                if (toggleRefresh.isChecked() || allowManualUpdate[0]) {
+                    allowManualUpdate[0] = false;
+                    MapAdapter mapAdapter = (MapAdapter) gridView.getAdapter();
+                    mapAdapter.setRobotPosition((20 - positions[1]) * 15 + (positions[0] - 1));
+                    mapAdapter.notifyDataSetChanged();
+                }
+            } else if (inputJsonObject.has("grid") && (toggleRefresh.isChecked() || allowManualUpdate[1])) {
+                allowManualUpdate[1] = false;
                 synchronized (lock) {
                     mapDescriptor.add("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
                     mapDescriptor.add(inputJsonObject.getString("grid"));
@@ -536,10 +572,10 @@ public class MainActivity extends AppCompatActivity {
         for (int i = 0; i < mapDescriptor1Raw.length(); i++) {
             char c = mapDescriptor1Raw.charAt(i);
             if (c == '1') {
-                mapAdapter.markExplored(i);
+                mapAdapter.markExplored((19 - i / 15) * 15 + (i % 15));
                 char ch = mapDescriptor2Raw.charAt(index);
                 if (ch == '1')
-                    mapAdapter.markObstacle(i);
+                    mapAdapter.markObstacle((19 - i / 15) * 15 + (i % 15));
                 index++;
             }
         }
@@ -685,14 +721,14 @@ public class MainActivity extends AppCompatActivity {
 
         public String getWaypointCoordinate() {
             if (waypointPosition > 0)
-                return (20 - waypointPosition / 15) + ", " + (waypointPosition % 15 + 1);
+                return (waypointPosition % 15 + 1) + ", " + (20 - waypointPosition / 15);
             else
                 return "N/A";
         }
 
         public String getRobotCoordinate() {
             if (robotPosition > 0)
-                return (20 - robotPosition / 15) + ", " + (robotPosition % 15 + 1) + ", " + orientation * 90;
+                return (robotPosition % 15 + 1) + ", " + (20 - robotPosition / 15) + ", " + orientation * 90;
             else
                 return "N/A";
         }
