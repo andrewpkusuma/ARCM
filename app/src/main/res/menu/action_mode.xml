@@ -7,8 +7,8 @@
         android:title="Clear Waypoint"
         app:showAsAction="never"/>
     <item
-        android:id="@+id/action_mode_cancel"
-        android:title="Done"
+        android:id="@+id/action_mode_save"
+        android:title="Save"
         app:showAsAction="never"/>
 
 </menu>

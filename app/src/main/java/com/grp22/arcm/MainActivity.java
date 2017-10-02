@@ -54,6 +54,8 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.Locale;
 
+import static com.grp22.arcm.R.drawable.robot;
+
 public class MainActivity extends AppCompatActivity {
 
     private SharedPreferences sharedPreferences;
@@ -104,6 +106,8 @@ public class MainActivity extends AppCompatActivity {
 
     private ActionMode.Callback mCallback = new ActionMode.Callback() {
         MapAdapter mapAdapter;
+        int currentWaypoint;
+        boolean startingPositionSet = false;
 
         @Override
         public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
@@ -116,6 +120,7 @@ public class MainActivity extends AppCompatActivity {
             MenuInflater inflater = mode.getMenuInflater();
             inflater.inflate(R.menu.action_mode, menu);
             mapAdapter = (MapAdapter) gridView.getAdapter();
+            currentWaypoint = mapAdapter.getWaypointPosition();
             toggleViewGroupVisibility(header, View.INVISIBLE);
             toggleViewGroupVisibility(footer, View.INVISIBLE);
             toggleViewGroupVisibility(actionModeTop, View.VISIBLE);
@@ -125,22 +130,15 @@ public class MainActivity extends AppCompatActivity {
             final ToggleButton position = (ToggleButton) findViewById(R.id.toggle_robot_position);
             final ImageButton rotateLeft = (ImageButton) findViewById(R.id.set_rotate_left);
             final ImageButton rotateRight = (ImageButton) findViewById(R.id.set_rotate_right);
-            if (mapAdapter.getSelectionMode() == 0) {
-                wayPoint.setChecked(true);
-                position.setChecked(false);
-                rotateLeft.setVisibility(View.INVISIBLE);
-                rotateRight.setVisibility(View.INVISIBLE);
-            } else if (mapAdapter.getSelectionMode() == 1) {
-                rotateLeft.setVisibility(View.VISIBLE);
-                rotateRight.setVisibility(View.VISIBLE);
-                wayPoint.setChecked(false);
-                position.setChecked(true);
-            }
+            mapAdapter.setSelectionMode(0);
+            wayPoint.setChecked(true);
+            position.setChecked(false);
+            rotateLeft.setVisibility(View.INVISIBLE);
+            rotateRight.setVisibility(View.INVISIBLE);
             wayPoint.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
                 @Override
                 public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
                     if (b) {
-                        position.setChecked(!b);
                         rotateLeft.setVisibility(View.INVISIBLE);
                         rotateRight.setVisibility(View.INVISIBLE);
                         mapAdapter.setSelectionMode(0);
@@ -148,15 +146,29 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
             });
+            wayPoint.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    wayPoint.setChecked(true);
+                    position.setChecked(false);
+                }
+            });
             position.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
                 @Override
                 public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
                     if (b) {
-                        wayPoint.setChecked(!b);
                         rotateLeft.setVisibility(View.VISIBLE);
                         rotateRight.setVisibility(View.VISIBLE);
                         mapAdapter.setSelectionMode(1);
                     }
+                }
+            });
+            position.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    startingPositionSet = true;
+                    wayPoint.setChecked(false);
+                    position.setChecked(true);
                 }
             });
             rotateLeft.setOnClickListener(new View.OnClickListener() {
@@ -179,35 +191,38 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
             boolean ret = false;
-            if (item.getItemId() == R.id.action_mode_cancel) {
+            if (item.getItemId() == R.id.action_mode_save) {
+                currentWaypoint = mapAdapter.getWaypointPosition();
                 mode.finish();
-                mapAdapter.setSelectionEnabled(false);
-                toggleViewGroupVisibility(header, View.VISIBLE);
-                toggleViewGroupVisibility(footer, View.VISIBLE);
-                toggleViewGroupVisibility(actionModeTop, View.INVISIBLE);
-                toggleViewGroupVisibility(actionModeMid, View.INVISIBLE);
-                toggleViewGroupVisibility(actionModeBottom, View.INVISIBLE);
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        String startingCoordinate = mapAdapter.getRobotCoordinate();
-                        if (!startingCoordinate.equals("N/A"))
-                            mService.sendToOutputStream("SP, " + startingCoordinate);
-                        SystemClock.sleep(delay);
-                        String waypointCoordinate = mapAdapter.getWaypointCoordinate();
-                        if (!waypointCoordinate.equals("N/A"))
-                            mService.sendToOutputStream("WP, " + waypointCoordinate);
-                    }
-                }).start();
                 ret = true;
             } else if (item.getItemId() == R.id.action_mode_clear) {
-                mapAdapter.clearWaypoint();
+                mapAdapter.setWaypointPosition(-1);
             }
             return ret;
         }
 
         @Override
         public void onDestroyActionMode(ActionMode actionMode) {
+            mapAdapter.setWaypointPosition(currentWaypoint);
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    if (startingPositionSet) {
+                        String startingCoordinate = mapAdapter.getRobotCoordinate();
+                        if (startingCoordinate.equals("N/A"))
+                            mService.sendToOutputStream("SP, -1, -1");
+                        else
+                            mService.sendToOutputStream("SP, " + startingCoordinate);
+                    }
+                    startingPositionSet = false;
+                    SystemClock.sleep(delay);
+                    String waypointCoordinate = mapAdapter.getWaypointCoordinate();
+                    if (currentWaypoint == -1)
+                        mService.sendToOutputStream("WP, -1, -1");
+                    else
+                        mService.sendToOutputStream("WP, " + waypointCoordinate);
+                }
+            }).start();
             mapAdapter.setSelectionEnabled(false);
             toggleViewGroupVisibility(header, View.VISIBLE);
             toggleViewGroupVisibility(footer, View.VISIBLE);
@@ -543,7 +558,7 @@ public class MainActivity extends AppCompatActivity {
             } else if (inputJsonObject.has("grid") && (toggleRefresh.isChecked() || allowManualUpdate[1])) {
                 allowManualUpdate[1] = false;
                 synchronized (lock) {
-                    mapDescriptor.add("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
+                    mapDescriptor.add("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
                     mapDescriptor.add(inputJsonObject.getString("grid"));
                     if (mapDescriptor.size() == 2) {
                         mapDescriptor1 = mapDescriptor.get(0);
@@ -709,13 +724,19 @@ public class MainActivity extends AppCompatActivity {
             return this.toggleSelection;
         }
 
-        public void setRobotPosition(int position) {
-            this.robotPosition = position;
+        public int getWaypointPosition() {
+            return this.waypointPosition;
         }
 
-        public void clearWaypoint() {
-            waypointPosition = -1;
+        public void setWaypointPosition(int position) {
+            this.waypointPosition = position;
             ((TextView) findViewById(R.id.waypoint)).setText(getWaypointCoordinate());
+            notifyDataSetChanged();
+        }
+
+        public void setRobotPosition(int position) {
+            this.robotPosition = position;
+            ((TextView) findViewById(R.id.robot_position)).setText(getRobotCoordinate());
             notifyDataSetChanged();
         }
 
@@ -777,16 +798,13 @@ public class MainActivity extends AppCompatActivity {
                 public void onClick(View view) {
                     if (selectionEnabled) {
                         if (toggleSelection == 0) {
-                            waypointPosition = position;
-                            ((TextView) findViewById(R.id.waypoint)).setText(getWaypointCoordinate());
+                            setWaypointPosition(position);
                         } else if (toggleSelection == 1) {
                             if (!(position % 15 > 12 || position / 15 < 2)) {
-                                robotPosition = position;
-                                ((TextView) findViewById(R.id.robot_position)).setText(getRobotCoordinate());
+                                setRobotPosition(position);
                             }
                         }
                     }
-                    notifyDataSetChanged();
                 }
             });
 
@@ -817,7 +835,7 @@ public class MainActivity extends AppCompatActivity {
             for (int i = 0; i < 3; i++) {
                 for (int j = 0; j < 3; j++) {
                     if (position == (robotPosition - i * 15) + j)
-                        convertView.setBackgroundResource(R.drawable.robot);
+                        convertView.setBackgroundResource(robot);
                 }
             }
             if (position == robotPosition - 14) {

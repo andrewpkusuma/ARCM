@@ -63,7 +63,7 @@ public class MapDecoder {
         }
         String result = stringBuilder.toString();
         if (isPartOne) {
-            //result = result.substring(0, result.length()- 2).substring(2);
+            result = result.substring(0, result.length()- 2).substring(2);
         }
         return result;
     }

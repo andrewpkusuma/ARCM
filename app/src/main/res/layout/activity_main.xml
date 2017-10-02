@@ -31,9 +31,10 @@
             <ToggleButton
                 android:id="@+id/toggle_waypoint"
                 android:layout_width="150dp"
-                android:layout_height="wrap_content"
+                android:layout_height="54dp"
                 android:textOff="Waypoint"
-                android:textOn="Waypoint"/>
+                android:textOn="Waypoint"
+                android:textSize="18dp"/>
 
 
         </LinearLayout>
@@ -47,9 +48,10 @@
             <ToggleButton
                 android:id="@+id/toggle_robot_position"
                 android:layout_width="150dp"
-                android:layout_height="wrap_content"
+                android:layout_height="54dp"
                 android:textOff="Robot"
-                android:textOn="Robot"/>
+                android:textOn="Robot"
+                android:textSize="18dp"/>
 
 
         </LinearLayout>
@@ -61,10 +63,11 @@
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
         android:layout_centerHorizontal="true"
-        android:layout_marginBottom="12dp"
+        android:layout_marginBottom="6dp"
         android:layout_marginEnd="6dp"
         android:layout_marginStart="6dp"
-        android:layout_marginTop="3dp">
+        android:layout_marginTop="6dp"
+        android:gravity="center">
 
         <TextView
             android:id="@+id/status"
@@ -125,7 +128,6 @@
             <TextView
                 android:layout_width="180dp"
                 android:layout_height="42dp"
-                android:layout_centerInParent="true"
                 android:layout_marginBottom="6dp"
                 android:gravity="center"
                 android:text="Waypoint"
@@ -134,10 +136,8 @@
                 android:id="@+id/waypoint"
                 android:layout_width="180dp"
                 android:layout_height="42dp"
-                android:layout_centerInParent="true"
                 android:background="@drawable/border_white_bg"
                 android:gravity="center"
-                android:text="STATUS"
                 android:textSize="24dp"/>
 
 
@@ -152,7 +152,6 @@
             <TextView
                 android:layout_width="180dp"
                 android:layout_height="42dp"
-                android:layout_centerInParent="true"
                 android:layout_marginBottom="6dp"
                 android:gravity="center"
                 android:text="Robot"
@@ -161,10 +160,8 @@
                 android:id="@+id/robot_position"
                 android:layout_width="180dp"
                 android:layout_height="42dp"
-                android:layout_centerInParent="true"
                 android:background="@drawable/border_white_bg"
                 android:gravity="center"
-                android:text="STATUS"
                 android:textSize="24dp"/>
 
 
