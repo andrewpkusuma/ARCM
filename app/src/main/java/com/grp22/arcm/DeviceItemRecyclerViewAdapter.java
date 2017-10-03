@@ -2,6 +2,7 @@ package com.grp22.arcm;
 
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
+import android.graphics.PorterDuff;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.CardView;
 import android.support.v7.widget.RecyclerView;
@@ -49,14 +50,6 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
 
     @Override
     public void onBindViewHolder(final DeviceItemViewHolder holder, final int position) {
-        if (position == selectedPosition) {
-            Log.d("Aku biru", Integer.toString(position));
-            holder.card.setCardBackgroundColor(ContextCompat.getColor(context, android.R.color.holo_blue_light));
-        } else {
-            Log.d("Aku putih", Integer.toString(position));
-            holder.card.setCardBackgroundColor(ContextCompat.getColor(context, R.color.cardview_light_background));
-            holder.card.setRadius(context.getResources().getDimension(R.dimen.cardview_default_radius));
-        }
         holder.card.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -76,6 +69,18 @@ public class DeviceItemRecyclerViewAdapter extends RecyclerView.Adapter<DeviceIt
 
         holder.deviceDetails.setText(deviceItems.get(position).getDeviceName() + "\n" + deviceItems.get(position).getAddress());
         holder.deviceImage.setImageResource(R.drawable.ic_devices_black_48px);
+        if (position == selectedPosition) {
+            Log.d("Aku biru", Integer.toString(position));
+            holder.card.setCardBackgroundColor(ContextCompat.getColor(context, android.R.color.holo_blue_light));
+            holder.deviceImage.setColorFilter(ContextCompat.getColor(fragment.getContext(), android.R.color.white), PorterDuff.Mode.SRC_ATOP);
+            holder.deviceDetails.setTextColor(ContextCompat.getColor(context, android.R.color.white));
+        } else {
+            Log.d("Aku putih", Integer.toString(position));
+            holder.card.setCardBackgroundColor(ContextCompat.getColor(context, R.color.cardview_light_background));
+            holder.card.setRadius(context.getResources().getDimension(R.dimen.cardview_default_radius));
+            holder.deviceImage.setColorFilter(ContextCompat.getColor(fragment.getContext(), android.R.color.tab_indicator_text), PorterDuff.Mode.SRC_ATOP);
+            holder.deviceDetails.setTextColor(ContextCompat.getColor(context, android.R.color.tab_indicator_text));
+        }
 
         if (deviceItems.get(position).getStatus() == BluetoothDevice.BOND_NONE) {
             holder.connect.setText("Pair");

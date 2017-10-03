@@ -210,17 +210,17 @@ public class MainActivity extends AppCompatActivity {
                     if (startingPositionSet) {
                         String startingCoordinate = mapAdapter.getRobotCoordinate();
                         if (startingCoordinate.equals("N/A"))
-                            mService.sendToOutputStream("SP, -1, -1");
+                            mService.sendToOutputStream("pSP,-1,-1,0");
                         else
-                            mService.sendToOutputStream("SP, " + startingCoordinate);
+                            mService.sendToOutputStream("pSP," + startingCoordinate.replaceAll("\\s+",""));
                     }
                     startingPositionSet = false;
                     SystemClock.sleep(delay);
                     String waypointCoordinate = mapAdapter.getWaypointCoordinate();
                     if (currentWaypoint == -1)
-                        mService.sendToOutputStream("WP, -1, -1");
+                        mService.sendToOutputStream("pWP,-1,-1");
                     else
-                        mService.sendToOutputStream("WP, " + waypointCoordinate);
+                        mService.sendToOutputStream("pWP," + waypointCoordinate.replaceAll("\\s+",""));
                 }
             }).start();
             mapAdapter.setSelectionEnabled(false);
@@ -323,7 +323,7 @@ public class MainActivity extends AppCompatActivity {
         forward.setOnTouchListener(new ControllerListener("forward"));
 
         ImageButton reverse = (ImageButton) findViewById(R.id.reverse);
-        reverse.setOnTouchListener(new ControllerListener("reverse"));
+        reverse.getDrawable().setAlpha(0);
 
         ImageButton left = (ImageButton) findViewById(R.id.left);
         left.setOnTouchListener(new ControllerListener("left"));
@@ -331,17 +331,17 @@ public class MainActivity extends AppCompatActivity {
         ImageButton right = (ImageButton) findViewById(R.id.right);
         right.setOnTouchListener(new ControllerListener("right"));
 
-        ImageButton rotateLeft = (ImageButton) findViewById(R.id.rotate_left);
+        /*ImageButton rotateLeft = (ImageButton) findViewById(R.id.rotate_left);
         rotateLeft.setOnTouchListener(new ControllerListener("rotateLeft"));
 
         ImageButton rotateRight = (ImageButton) findViewById(R.id.rotate_right);
-        rotateRight.setOnTouchListener(new ControllerListener("rotateRight"));
+        rotateRight.setOnTouchListener(new ControllerListener("rotateRight"));*/
 
         Button exploreArena = (Button) findViewById(R.id.explore_arena);
         exploreArena.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                mService.sendToOutputStream("beginExploration");
+                mService.sendToOutputStream("pEX_START");
             }
         });
 
@@ -349,7 +349,7 @@ public class MainActivity extends AppCompatActivity {
         fastestPath.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                mService.sendToOutputStream("beginFastestPath");
+                mService.sendToOutputStream("pFP_START");
             }
         });
 
@@ -429,6 +429,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    public void onBackPressed() {
+        ((Button) findViewById(R.id.stop)).callOnClick();
+        super.onBackPressed();
+    }
+
+    @Override
     protected void onDestroy() {
         mService.stop();
         if (isRegistered) {
@@ -441,6 +447,8 @@ public class MainActivity extends AppCompatActivity {
             unbindService(mConnection);
             mBound = false;
         }
+        Intent begin = new Intent(getApplicationContext(), BluetoothConnectActivity.class);
+        startActivity(begin);
         super.onDestroy();
     }
 
@@ -482,26 +490,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void sendCommand(String command) {
-        String[] commandList = {"forward", "rotateLeft", "reverse", "rotateRight"};
+        String[] commandList = {"pINSTR\nF\n", "pINSTR\nL\n", "pINSTR\nR\n"};
 
         switch (command) {
             case "forward":
-                mService.sendToOutputStream(commandList[(orientation + 4) % 4]);
+                mService.sendToOutputStream(commandList[(orientation + 3) % 3]);
                 break;
             case "right":
-                mService.sendToOutputStream(commandList[(orientation + 3) % 4]);
-                break;
-            case "reverse":
-                mService.sendToOutputStream(commandList[(orientation + 2) % 4]);
+                mService.sendToOutputStream(commandList[(orientation + 2) % 3]);
                 break;
             case "left":
-                mService.sendToOutputStream(commandList[(orientation + 1) % 4]);
-                break;
-            case "rotateRight":
-                mService.sendToOutputStream(commandList[3]);
-                break;
-            case "rotateLeft":
-                mService.sendToOutputStream(commandList[1]);
+                mService.sendToOutputStream(commandList[(orientation + 1) % 3]);
                 break;
         }
     }
@@ -538,7 +537,68 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void handleStringInput(String input) {
-        try {
+        //try {
+        String[] inputSplitted = input.split("\\s+");
+        switch (inputSplitted[0]) {
+            case "MAP":
+                if (toggleRefresh.isChecked() || allowManualUpdate[1]) {
+                    allowManualUpdate[1] = false;
+                    synchronized (lock) {
+                        mapDescriptor.add(inputSplitted[1]);
+                        mapDescriptor.add(inputSplitted[2]);
+                        if (mapDescriptor.size() == 2) {
+                            mapDescriptor1 = mapDescriptor.get(0);
+                            mapDescriptor2 = mapDescriptor.get(1);
+                            updateMap();
+                            status.setText("MAP UPDATED");
+                            mapDescriptor.clear();
+                        }
+                    }
+                }
+                break;
+            case "BOT_POS":
+                String positionString = inputSplitted[1];
+                String[] positionStrings = positionString.substring(1, positionString.length() - 1).split(",");
+                synchronized (lock) {
+                    switch (positionStrings[2]) {
+                        case "N":
+                            orientation = 0;
+                            break;
+                        case "E":
+                            orientation = 1;
+                            break;
+                        case "W":
+                            orientation = 3;
+                            break;
+                        case "S":
+                            orientation = 2;
+                            break;
+                    }
+                }
+                if (toggleRefresh.isChecked() || allowManualUpdate[0]) {
+                    allowManualUpdate[0] = false;
+                    MapAdapter mapAdapter = (MapAdapter) gridView.getAdapter();
+                    mapAdapter.setRobotPosition((20 - Integer.parseInt(positionStrings[1])) * 15 + (Integer.parseInt(positionStrings[0]) - 1));
+                    mapAdapter.notifyDataSetChanged();
+                }
+                break;
+            case "INSTR":
+                String statusText = inputSplitted[1].substring(0, 1);
+                switch (statusText) {
+                    case "F":
+                        status.setText("FORWARD");
+                        break;
+                    case "L":
+                        status.setText("LEFT");
+                        break;
+                    case "R":
+                        status.setText("RIGHT");
+                        break;
+
+                }
+                break;
+        }
+            /*
             JSONObject inputJsonObject = new JSONObject(input);
             if (inputJsonObject.has("robotPosition")) {
                 String positionString = inputJsonObject.getString("robotPosition");
@@ -575,6 +635,7 @@ public class MainActivity extends AppCompatActivity {
         } catch (JSONException e) {
             e.printStackTrace();
         }
+        */
     }
 
     private void updateMap() {
@@ -600,9 +661,7 @@ public class MainActivity extends AppCompatActivity {
     public void refreshSettings() {
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         String movement = sharedPreferences.getString("movement", "robot");
-        if (movement.equals("arena"))
-            isArena = true;
-        else if (movement.equals("robot"))
+        if (movement.equals("robot"))
             isArena = false;
         Log.d("isArena", String.valueOf(isArena));
         delay = sharedPreferences.getInt("delay", 500);
@@ -629,12 +688,9 @@ public class MainActivity extends AppCompatActivity {
                     }
                     break;
                 case BluetoothConnectService.DISCONNECTED:
-                    unregisterReceiver(receiver);
-                    Log.d("Unregistered", "yay");
-                    isRegistered = false;
+                    Log.d("T e r", "p a n g g i l");
                     Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_SHORT).show();
-                    Intent begin = new Intent(getApplicationContext(), BluetoothConnectActivity.class);
-                    startActivity(begin);
+                    finish();
                     break;
                 case BluetoothConnectService.STRING_RECEIVED:
                     String message = intent.getStringExtra("message");
@@ -720,10 +776,6 @@ public class MainActivity extends AppCompatActivity {
             this.toggleSelection = mode;
         }
 
-        public int getSelectionMode() {
-            return this.toggleSelection;
-        }
-
         public int getWaypointPosition() {
             return this.waypointPosition;
         }
@@ -748,8 +800,24 @@ public class MainActivity extends AppCompatActivity {
         }
 
         public String getRobotCoordinate() {
-            if (robotPosition > 0)
-                return (robotPosition % 15 + 1) + ", " + (20 - robotPosition / 15) + ", " + orientation * 90;
+            if (robotPosition > 0) {
+                String orientationString = "";
+                switch (orientation) {
+                    case 0:
+                        orientationString = "N";
+                        break;
+                    case 1:
+                        orientationString = "E";
+                        break;
+                    case 2:
+                        orientationString = "S";
+                        break;
+                    case 3:
+                        orientationString = "W";
+                        break;
+                }
+                return (robotPosition % 15 + 1) + ", " + (20 - robotPosition / 15) + ", " + orientationString;
+            }
             else
                 return "N/A";
         }
@@ -962,14 +1030,7 @@ public class MainActivity extends AppCompatActivity {
             delay = sharedPreferences.getInt("delay", 500);
             timeout = sharedPreferences.getInt("timeout", 10);
 
-            switch (movement) {
-                case "robot":
-                    ((RadioButton) ((RadioGroup) view.findViewById(R.id.movement_reference)).findViewById(R.id.movement_robot)).setChecked(true);
-                    break;
-                case "arena":
-                    ((RadioButton) ((RadioGroup) view.findViewById(R.id.movement_reference)).findViewById(R.id.movement_arena)).setChecked(true);
-                    break;
-            }
+            ((RadioButton) ((RadioGroup) view.findViewById(R.id.movement_reference)).findViewById(R.id.movement_robot)).setChecked(true);
 
             switch (delay) {
                 case 500:
@@ -1002,9 +1063,6 @@ public class MainActivity extends AppCompatActivity {
                     switch (i) {
                         case R.id.movement_robot:
                             movement = "robot";
-                            break;
-                        case R.id.movement_arena:
-                            movement = "arena";
                             break;
                     }
                 }
