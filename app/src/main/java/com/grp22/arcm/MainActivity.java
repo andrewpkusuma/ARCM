@@ -107,7 +107,6 @@ public class MainActivity extends AppCompatActivity {
     private ActionMode.Callback mCallback = new ActionMode.Callback() {
         MapAdapter mapAdapter;
         int currentWaypoint;
-        boolean startingPositionSet = false;
 
         @Override
         public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
@@ -166,7 +165,6 @@ public class MainActivity extends AppCompatActivity {
             position.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    startingPositionSet = true;
                     wayPoint.setChecked(false);
                     position.setChecked(true);
                 }
@@ -204,25 +202,19 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onDestroyActionMode(ActionMode actionMode) {
             mapAdapter.setWaypointPosition(currentWaypoint);
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    if (startingPositionSet) {
-                        String startingCoordinate = mapAdapter.getRobotCoordinate();
-                        if (startingCoordinate.equals("N/A"))
-                            mService.sendToOutputStream("pSP,-1,-1,0");
-                        else
-                            mService.sendToOutputStream("pSP," + startingCoordinate.replaceAll("\\s+",""));
-                    }
-                    startingPositionSet = false;
-                    SystemClock.sleep(delay);
-                    String waypointCoordinate = mapAdapter.getWaypointCoordinate();
-                    if (currentWaypoint == -1)
-                        mService.sendToOutputStream("pWP,-1,-1");
-                    else
-                        mService.sendToOutputStream("pWP," + waypointCoordinate.replaceAll("\\s+",""));
-                }
-            }).start();
+            if (((ToggleButton) findViewById(R.id.toggle_waypoint)).isChecked()) {
+                String waypointCoordinate = mapAdapter.getWaypointCoordinate();
+                if (currentWaypoint == -1)
+                    mService.sendToOutputStream("pWP,-1,-1");
+                else
+                    mService.sendToOutputStream("pWP," + waypointCoordinate.replaceAll("\\s+",""));
+            } else if (((ToggleButton) findViewById(R.id.toggle_robot_position)).isChecked()) {
+                String startingCoordinate = mapAdapter.getRobotCoordinate();
+                if (startingCoordinate.equals("N/A"))
+                    mService.sendToOutputStream("pSP,-1,-1,0");
+                else
+                    mService.sendToOutputStream("pSP," + startingCoordinate.replaceAll("\\s+",""));
+            }
             mapAdapter.setSelectionEnabled(false);
             toggleViewGroupVisibility(header, View.VISIBLE);
             toggleViewGroupVisibility(footer, View.VISIBLE);
@@ -558,7 +550,7 @@ public class MainActivity extends AppCompatActivity {
                 break;
             case "BOT_POS":
                 String positionString = inputSplitted[1];
-                String[] positionStrings = positionString.substring(1, positionString.length() - 1).split(",");
+                String[] positionStrings = positionString.split(",");
                 synchronized (lock) {
                     switch (positionStrings[2]) {
                         case "N":
@@ -578,12 +570,12 @@ public class MainActivity extends AppCompatActivity {
                 if (toggleRefresh.isChecked() || allowManualUpdate[0]) {
                     allowManualUpdate[0] = false;
                     MapAdapter mapAdapter = (MapAdapter) gridView.getAdapter();
-                    mapAdapter.setRobotPosition((20 - Integer.parseInt(positionStrings[1])) * 15 + (Integer.parseInt(positionStrings[0]) - 1));
+                    mapAdapter.setRobotPosition((20 - Integer.parseInt(positionStrings[0])) * 15 + (Integer.parseInt(positionStrings[1]) - 1));
                     mapAdapter.notifyDataSetChanged();
                 }
                 break;
             case "INSTR":
-                String statusText = inputSplitted[1].substring(0, 1);
+                String statusText = inputSplitted[1];
                 switch (statusText) {
                     case "F":
                         status.setText("FORWARD");
@@ -594,7 +586,9 @@ public class MainActivity extends AppCompatActivity {
                     case "R":
                         status.setText("RIGHT");
                         break;
-
+                    case "C":
+                        status.setText("CALIBRATING");
+                        break;
                 }
                 break;
         }
@@ -794,7 +788,7 @@ public class MainActivity extends AppCompatActivity {
 
         public String getWaypointCoordinate() {
             if (waypointPosition > 0)
-                return (waypointPosition % 15 + 1) + ", " + (20 - waypointPosition / 15);
+                return (20 - waypointPosition / 15) + ", " + (waypointPosition % 15 + 1);
             else
                 return "N/A";
         }
@@ -816,7 +810,7 @@ public class MainActivity extends AppCompatActivity {
                         orientationString = "W";
                         break;
                 }
-                return (robotPosition % 15 + 1) + ", " + (20 - robotPosition / 15) + ", " + orientationString;
+                return (20 - robotPosition / 15) + ", " + (robotPosition % 15 + 1) + ", " + orientationString;
             }
             else
                 return "N/A";
