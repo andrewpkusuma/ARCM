@@ -48,9 +48,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import java.util.ArrayList;
 import java.util.Locale;
 
@@ -207,13 +204,13 @@ public class MainActivity extends AppCompatActivity {
                 if (currentWaypoint == -1)
                     mService.sendToOutputStream("pWP,-1,-1");
                 else
-                    mService.sendToOutputStream("pWP," + waypointCoordinate.replaceAll("\\s+",""));
+                    mService.sendToOutputStream("pWP," + waypointCoordinate.replaceAll("\\s+", ""));
             } else if (((ToggleButton) findViewById(R.id.toggle_robot_position)).isChecked()) {
                 String startingCoordinate = mapAdapter.getRobotCoordinate();
                 if (startingCoordinate.equals("N/A"))
                     mService.sendToOutputStream("pSP,-1,-1,0");
                 else
-                    mService.sendToOutputStream("pSP," + startingCoordinate.replaceAll("\\s+",""));
+                    mService.sendToOutputStream("pSP," + startingCoordinate.replaceAll("\\s+", ""));
             }
             mapAdapter.setSelectionEnabled(false);
             toggleViewGroupVisibility(header, View.VISIBLE);
@@ -314,20 +311,20 @@ public class MainActivity extends AppCompatActivity {
         ImageButton forward = (ImageButton) findViewById(R.id.forward);
         forward.setOnTouchListener(new ControllerListener("forward"));
 
-        ImageButton reverse = (ImageButton) findViewById(R.id.reverse);
+        /*ImageButton reverse = (ImageButton) findViewById(R.id.reverse);
         reverse.getDrawable().setAlpha(0);
 
         ImageButton left = (ImageButton) findViewById(R.id.left);
         left.setOnTouchListener(new ControllerListener("left"));
 
         ImageButton right = (ImageButton) findViewById(R.id.right);
-        right.setOnTouchListener(new ControllerListener("right"));
+        right.setOnTouchListener(new ControllerListener("right"));*/
 
-        /*ImageButton rotateLeft = (ImageButton) findViewById(R.id.rotate_left);
+        ImageButton rotateLeft = (ImageButton) findViewById(R.id.rotate_left);
         rotateLeft.setOnTouchListener(new ControllerListener("rotateLeft"));
 
         ImageButton rotateRight = (ImageButton) findViewById(R.id.rotate_right);
-        rotateRight.setOnTouchListener(new ControllerListener("rotateRight"));*/
+        rotateRight.setOnTouchListener(new ControllerListener("rotateRight"));
 
         Button exploreArena = (Button) findViewById(R.id.explore_arena);
         exploreArena.setOnClickListener(new View.OnClickListener() {
@@ -482,17 +479,26 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void sendCommand(String command) {
-        String[] commandList = {"pINSTR\nF\n", "pINSTR\nL\n", "pINSTR\nR\n"};
+        String[] commandList = {"forward", "rotateLeft", "reverse", "rotateRight"};
 
         switch (command) {
             case "forward":
-                mService.sendToOutputStream(commandList[(orientation + 3) % 3]);
+                mService.sendToOutputStream(commandList[(orientation + 4) % 4]);
                 break;
             case "right":
-                mService.sendToOutputStream(commandList[(orientation + 2) % 3]);
+                mService.sendToOutputStream(commandList[(orientation + 3) % 4]);
+                break;
+            case "reverse":
+                mService.sendToOutputStream(commandList[(orientation + 2) % 4]);
                 break;
             case "left":
-                mService.sendToOutputStream(commandList[(orientation + 1) % 3]);
+                mService.sendToOutputStream(commandList[(orientation + 1) % 4]);
+                break;
+            case "rotateRight":
+                mService.sendToOutputStream(commandList[3]);
+                break;
+            case "rotateLeft":
+                mService.sendToOutputStream(commandList[1]);
                 break;
         }
     }
@@ -817,8 +823,7 @@ public class MainActivity extends AppCompatActivity {
                         break;
                 }
                 return (20 - robotPosition / 15) + ", " + (robotPosition % 15 + 1) + ", " + orientationString;
-            }
-            else
+            } else
                 return "N/A";
         }
 
