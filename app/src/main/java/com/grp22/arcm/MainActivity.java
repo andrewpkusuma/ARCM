@@ -578,17 +578,23 @@ public class MainActivity extends AppCompatActivity {
                 String statusText = inputSplitted[1];
                 switch (statusText) {
                     case "F":
-                        status.setText("FORWARD");
+                        status.setText("MOVING FORWARD");
                         break;
                     case "L":
-                        status.setText("LEFT");
+                        status.setText("TURNING LEFT");
                         break;
                     case "R":
-                        status.setText("RIGHT");
+                        status.setText("TURNING RIGHT");
                         break;
                     case "C":
                         status.setText("CALIBRATING");
                         break;
+                    default:
+                        int numberOfTimes = Integer.parseInt(statusText);
+                        if (numberOfTimes > 0)
+                            status.setText("FORWARD " + numberOfTimes + " TIMES");
+                        else
+                            status.setText("STOP");
                 }
                 break;
         }
