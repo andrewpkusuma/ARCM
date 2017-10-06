@@ -28,6 +28,11 @@ public class SpeechCommandProcessor {
         speech = speech.toLowerCase();
 
         Map<String, String> replacements = new HashMap<String, String>() {{
+            put("for word", "forward");
+            put("foreword", "forward");
+            put("fore word", "forward");
+            put("four word", "forward");
+
             put("one ", "1");
             put("two ", "2");
             put("three ", "3");
@@ -48,7 +53,7 @@ public class SpeechCommandProcessor {
             put("last", "left");
         }};
 
-        String regexp = "one |two |three |four |five |six |seven |eight |nine |ten |to |tree |for |wright|town|last";
+        String regexp = "for word|foreword|fore word|four word|one |two |three |four |five |six |seven |eight |nine |ten |to |tree |for |wright|town|last";
 
         StringBuffer sb = new StringBuffer();
         Pattern p = Pattern.compile(regexp);
@@ -86,10 +91,10 @@ public class SpeechCommandProcessor {
             isRepeatable = true;
             targetOrientation = 1;
         } else if (speech.contains("exploration")) {
-            command = "beginExploration";
+            command = "pEX_START";
             isRepeatable = false;
         } else if (speech.contains("fastest")) {
-            command = "beginFastestPath";
+            command = "pFP_START";
             isRepeatable = false;
         } else
             command = null;

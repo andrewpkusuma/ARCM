@@ -55,6 +55,9 @@ import static com.grp22.arcm.R.drawable.robot;
 
 public class MainActivity extends AppCompatActivity {
 
+    private final int REQ_CODE_SPEECH_INPUT = 69;
+    private final SpeechCommandProcessor processor = new SpeechCommandProcessor();
+    private final Object lock = new Object();
     private SharedPreferences sharedPreferences;
     private int delay;
     private boolean isArena;
@@ -74,10 +77,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean[] allowManualUpdate = {false, false};
     private ProgressDialog progressDialog;
     private boolean isPreviouslyRecovered;
-    private final int REQ_CODE_SPEECH_INPUT = 69;
     private int orientation = 0; // 0 = up, 1 = right, 2 = down, 3 = left
-    private final SpeechCommandProcessor processor = new SpeechCommandProcessor();
-    private final Object lock = new Object();
     private ArrayList<String> mapDescriptor;
     private String mapDescriptor1;
     private String mapDescriptor2;
@@ -397,9 +397,12 @@ public class MainActivity extends AppCompatActivity {
         filter.addAction(BluetoothConnectService.DISCONNECTED);
         filter.addAction(BluetoothConnectService.STRING_RECEIVED);
         filter.addCategory(Intent.CATEGORY_DEFAULT);
-        receiver = new ResponseReceiver();
-        registerReceiver(receiver, filter);
-        isRegistered = true;
+        if (!isRegistered) {
+            receiver = new ResponseReceiver();
+            registerReceiver(receiver, filter);
+            Log.d("Registered", "woo-hoo!");
+            isRegistered = true;
+        }
 
         new Thread(new Runnable() {
             @Override
@@ -428,7 +431,7 @@ public class MainActivity extends AppCompatActivity {
         mService.stop();
         if (isRegistered) {
             unregisterReceiver(receiver);
-            Log.d("Unregistered", "yay");
+            Log.d("Unregistered", "d'oh!");
             isRegistered = false;
         }
         // Unbind from the service
@@ -436,8 +439,6 @@ public class MainActivity extends AppCompatActivity {
             unbindService(mConnection);
             mBound = false;
         }
-        Intent begin = new Intent(getApplicationContext(), BluetoothConnectActivity.class);
-        startActivity(begin);
         super.onDestroy();
     }
 
@@ -541,17 +542,17 @@ public class MainActivity extends AppCompatActivity {
             case "MAP":
                 if (toggleRefresh.isChecked() || allowManualUpdate[1]) {
                     allowManualUpdate[1] = false;
-                    synchronized (lock) {
+                    if (inputSplitted.length == 2) {
+                        mapDescriptor.add("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
+                        mapDescriptor.add(inputSplitted[1]);
+                    } else {
                         mapDescriptor.add(inputSplitted[1]);
                         mapDescriptor.add(inputSplitted[2]);
-                        if (mapDescriptor.size() == 2) {
-                            mapDescriptor1 = mapDescriptor.get(0);
-                            mapDescriptor2 = mapDescriptor.get(1);
-                            updateMap();
-                            status.setText("MAP UPDATED");
-                            mapDescriptor.clear();
-                        }
                     }
+                    mapDescriptor1 = mapDescriptor.get(0);
+                    mapDescriptor2 = mapDescriptor.get(1);
+                    updateMap();
+                    mapDescriptor.clear();
                 }
                 break;
             case "BOT_POS":
@@ -597,10 +598,12 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     default:
                         int numberOfTimes = Integer.parseInt(statusText);
-                        if (numberOfTimes > 0)
-                            status.setText("FORWARD " + numberOfTimes + " TIMES");
-                        else
+                        if (numberOfTimes == 0)
                             status.setText("STOP");
+                        else if (numberOfTimes == 1)
+                            status.setText("MOVING FORWARD");
+                        else
+                            status.setText("FORWARD " + numberOfTimes + " TIMES");
                 }
                 break;
         }
@@ -675,251 +678,6 @@ public class MainActivity extends AppCompatActivity {
         Log.d("timeout", Integer.toString(sharedPreferences.getInt("timeout", 10)));
         if (mBound)
             mService.setTimeout(sharedPreferences.getInt("timeout", 10));
-    }
-
-    public class ResponseReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            switch (action) {
-                case BluetoothConnectService.CONNECTION_INTERRUPTED:
-                    isPreviouslyRecovered = false;
-                    progressDialog.show();
-                    break;
-                case BluetoothConnectService.CONNECTION_RECOVERED:
-                    if (!isPreviouslyRecovered) {
-                        progressDialog.dismiss();
-                        Toast.makeText(getApplicationContext(), "Connection recovered", Toast.LENGTH_SHORT).show();
-                        isPreviouslyRecovered = true;
-                    }
-                    break;
-                case BluetoothConnectService.DISCONNECTED:
-                    Log.d("T e r", "p a n g g i l");
-                    Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_SHORT).show();
-                    finish();
-                    break;
-                case BluetoothConnectService.STRING_RECEIVED:
-                    String message = intent.getStringExtra("message");
-                    handleStringInput(message);
-                    break;
-            }
-        }
-    }
-
-    private class ControllerListener implements View.OnTouchListener {
-        String command;
-        Thread sendCommandThread;
-
-        public ControllerListener(String command) {
-            this.command = command;
-        }
-
-        @Override
-        public boolean onTouch(View view, MotionEvent event) {
-            if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                ((ImageButton) view).getDrawable().setColorFilter(ContextCompat.getColor(getApplicationContext(), android.R.color.white), PorterDuff.Mode.SRC_ATOP);
-                view.getBackground().setColorFilter(new PorterDuffColorFilter(ContextCompat.getColor(getApplicationContext(), android.R.color.holo_blue_light), PorterDuff.Mode.SRC_ATOP));
-                final int initialOrientation = orientation;
-                sendCommandThread = new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        while (true) {
-                            synchronized (lock) {
-                                if (!isArena)
-                                    orientation -= initialOrientation;
-                                sendCommand(command);
-                            }
-                            try {
-                                Thread.sleep(delay);
-                            } catch (InterruptedException e) {
-                                break;
-                            }
-                        }
-                    }
-                });
-                sendCommandThread.start();
-            } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
-                view.getBackground().clearColorFilter();
-                view.getBackground().invalidateSelf();
-                ((ImageButton) view).getDrawable().setColorFilter(ContextCompat.getColor(getApplicationContext(), android.R.color.black), PorterDuff.Mode.SRC_ATOP);
-                sendCommandThread.interrupt();
-            }
-            return true;
-        }
-    }
-
-    public class MapAdapter extends ArrayAdapter {
-        Context context;
-        Object[] items;
-        int resource;
-        int waypointPosition = -1;
-        int robotPosition = -100;
-        ArrayList<Integer> explored = new ArrayList<>();
-        ArrayList<Integer> obstacle = new ArrayList<>();
-
-        final float scale = getContext().getResources().getDisplayMetrics().density;
-        int pixels = (int) (30 * scale + 0.5f);
-
-        LayoutInflater inflater;
-
-        boolean selectionEnabled = false;
-        int toggleSelection = 0; // 0 = waypoint, 1 = robot position
-
-        public MapAdapter(Context context, int resource, Object[] items) {
-            super(context, resource, items);
-            this.context = context;
-            this.resource = resource;
-            this.items = items;
-
-            inflater = (LayoutInflater) this.context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-        }
-
-        public void setSelectionEnabled(boolean selectionEnabled) {
-            this.selectionEnabled = selectionEnabled;
-        }
-
-        public void setSelectionMode(int mode) {
-            this.toggleSelection = mode;
-        }
-
-        public int getWaypointPosition() {
-            return this.waypointPosition;
-        }
-
-        public void setWaypointPosition(int position) {
-            this.waypointPosition = position;
-            ((TextView) findViewById(R.id.waypoint)).setText(getWaypointCoordinate());
-            notifyDataSetChanged();
-        }
-
-        public void setRobotPosition(int position) {
-            this.robotPosition = position;
-            ((TextView) findViewById(R.id.robot_position)).setText(getRobotCoordinate());
-            notifyDataSetChanged();
-        }
-
-        public String getWaypointCoordinate() {
-            if (waypointPosition > 0)
-                return (20 - waypointPosition / 15) + ", " + (waypointPosition % 15 + 1);
-            else
-                return "N/A";
-        }
-
-        public String getRobotCoordinate() {
-            if (robotPosition > 0) {
-                String orientationString = "";
-                switch (orientation) {
-                    case 0:
-                        orientationString = "N";
-                        break;
-                    case 1:
-                        orientationString = "E";
-                        break;
-                    case 2:
-                        orientationString = "S";
-                        break;
-                    case 3:
-                        orientationString = "W";
-                        break;
-                }
-                return (20 - robotPosition / 15) + ", " + (robotPosition % 15 + 1) + ", " + orientationString;
-            } else
-                return "N/A";
-        }
-
-        public void updateOrientation(boolean toggle) {
-            if (toggle)
-                orientation = (orientation + 1) % 4;
-            else
-                orientation = (orientation - 1) % 4;
-            ((TextView) findViewById(R.id.robot_position)).setText(getRobotCoordinate());
-            notifyDataSetChanged();
-        }
-
-        private void markExplored(int position) {
-            explored.add(position);
-        }
-
-        private void markObstacle(int position) {
-            obstacle.add(position);
-        }
-
-        @Override
-        public int getCount() {
-            return items.length;
-        }
-
-        @Override
-        public Object getItem(int position) {
-            return items[position];
-        }
-
-        @Override
-        public long getItemId(int position) {
-            return position;
-        }
-
-        @Override
-        public View getView(final int position, View convertView, ViewGroup parent) {
-            if (convertView == null) {
-                // If convertView is null then inflate the appropriate layout file
-                convertView = inflater.inflate(resource, null);
-            }
-
-            convertView.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    if (selectionEnabled) {
-                        if (toggleSelection == 0) {
-                            setWaypointPosition(position);
-                        } else if (toggleSelection == 1) {
-                            if (!(position % 15 > 12 || position / 15 < 2)) {
-                                setRobotPosition(position);
-                            }
-                        }
-                    }
-                }
-            });
-
-            ImageView robotOrientation = (ImageView) convertView.findViewById(R.id.cell_image);
-            robotOrientation.setImageResource(0);
-
-            // Layer 1: Obstacle/empty/unexploted
-            if (obstacle.contains(position))
-                convertView.setBackgroundResource(R.drawable.obstacle);
-            else if (explored.contains(position))
-                convertView.setBackgroundResource(R.drawable.empty);
-            else
-                convertView.setBackgroundResource(R.drawable.empty_unexplored);
-
-            // Layer 2: Waypoint, home & goal
-            if (position == waypointPosition)
-                convertView.setBackgroundResource(R.drawable.way_point);
-            for (int i = 0; i < 3; i++) {
-                for (int j = 0; j < 3; j++) {
-                    if (position == ((20 - 1) - i) * 15 + j)
-                        convertView.setBackgroundResource(R.drawable.home);
-                    else if (position == (i * 15 + (14 - j)))
-                        convertView.setBackgroundResource(R.drawable.goal);
-                }
-            }
-
-            // Layer 3: Robot
-            for (int i = 0; i < 3; i++) {
-                for (int j = 0; j < 3; j++) {
-                    if (position == (robotPosition - i * 15) + j)
-                        convertView.setBackgroundResource(robot);
-                }
-            }
-            if (position == robotPosition - 14) {
-                robotOrientation.setImageResource(R.drawable.ic_navigation_white_48px);
-                robotOrientation.setRotation(orientation * 90);
-            }
-
-            // Set height and width constraints for the image view
-            //convertView.setLayoutParams(new LinearLayout.LayoutParams(pixels, pixels));
-            return convertView;
-        }
     }
 
     public static class SendTextDialogFragment extends DialogFragment implements View.OnClickListener {
@@ -1123,6 +881,250 @@ public class MainActivity extends AppCompatActivity {
             editor.putInt("timeout", timeout);
             editor.apply();
             ((MainActivity) getActivity()).refreshSettings();
+        }
+    }
+
+    public class ResponseReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            switch (action) {
+                case BluetoothConnectService.CONNECTION_INTERRUPTED:
+                    isPreviouslyRecovered = false;
+                    progressDialog.show();
+                    break;
+                case BluetoothConnectService.CONNECTION_RECOVERED:
+                    if (!isPreviouslyRecovered) {
+                        progressDialog.dismiss();
+                        Toast.makeText(getApplicationContext(), "Connection recovered", Toast.LENGTH_SHORT).show();
+                        isPreviouslyRecovered = true;
+                    }
+                    break;
+                case BluetoothConnectService.DISCONNECTED:
+                    if (progressDialog.isShowing())
+                        progressDialog.dismiss();
+                    Log.d("T e r", "p a n g g i l");
+                    Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_SHORT).show();
+                    finish();
+                    break;
+                case BluetoothConnectService.STRING_RECEIVED:
+                    String message = intent.getStringExtra("message");
+                    handleStringInput(message);
+                    break;
+            }
+        }
+    }
+
+    private class ControllerListener implements View.OnTouchListener {
+        String command;
+        Thread sendCommandThread;
+
+        public ControllerListener(String command) {
+            this.command = command;
+        }
+
+        @Override
+        public boolean onTouch(View view, MotionEvent event) {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                ((ImageButton) view).getDrawable().setColorFilter(ContextCompat.getColor(getApplicationContext(), android.R.color.white), PorterDuff.Mode.SRC_ATOP);
+                view.getBackground().setColorFilter(new PorterDuffColorFilter(ContextCompat.getColor(getApplicationContext(), android.R.color.holo_blue_light), PorterDuff.Mode.SRC_ATOP));
+                final int initialOrientation = orientation;
+                sendCommandThread = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        while (true) {
+                            synchronized (lock) {
+                                if (!isArena)
+                                    orientation -= initialOrientation;
+                                sendCommand(command);
+                            }
+                            try {
+                                Thread.sleep(delay);
+                            } catch (InterruptedException e) {
+                                break;
+                            }
+                        }
+                    }
+                });
+                sendCommandThread.start();
+            } else if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
+                view.getBackground().clearColorFilter();
+                view.getBackground().invalidateSelf();
+                ((ImageButton) view).getDrawable().setColorFilter(ContextCompat.getColor(getApplicationContext(), android.R.color.black), PorterDuff.Mode.SRC_ATOP);
+                sendCommandThread.interrupt();
+            }
+            return true;
+        }
+    }
+
+    public class MapAdapter extends ArrayAdapter {
+        Context context;
+        Object[] items;
+        int resource;
+        int waypointPosition = -1;
+        int robotPosition = -100;
+        ArrayList<Integer> explored = new ArrayList<>();
+        ArrayList<Integer> obstacle = new ArrayList<>();
+
+        LayoutInflater inflater;
+
+        boolean selectionEnabled = false;
+        int toggleSelection = 0; // 0 = waypoint, 1 = robot position
+
+        public MapAdapter(Context context, int resource, Object[] items) {
+            super(context, resource, items);
+            this.context = context;
+            this.resource = resource;
+            this.items = items;
+
+            inflater = (LayoutInflater) this.context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        }
+
+        public void setSelectionEnabled(boolean selectionEnabled) {
+            this.selectionEnabled = selectionEnabled;
+        }
+
+        public void setSelectionMode(int mode) {
+            this.toggleSelection = mode;
+        }
+
+        public int getWaypointPosition() {
+            return this.waypointPosition;
+        }
+
+        public void setWaypointPosition(int position) {
+            this.waypointPosition = position;
+            ((TextView) findViewById(R.id.waypoint)).setText(getWaypointCoordinate());
+            notifyDataSetChanged();
+        }
+
+        public void setRobotPosition(int position) {
+            this.robotPosition = position;
+            ((TextView) findViewById(R.id.robot_position)).setText(getRobotCoordinate());
+            notifyDataSetChanged();
+        }
+
+        public String getWaypointCoordinate() {
+            if (waypointPosition > 0)
+                return (20 - waypointPosition / 15) + ", " + (waypointPosition % 15 + 1);
+            else
+                return "N/A";
+        }
+
+        public String getRobotCoordinate() {
+            if (robotPosition > 0) {
+                String orientationString = "";
+                switch (orientation) {
+                    case 0:
+                        orientationString = "N";
+                        break;
+                    case 1:
+                        orientationString = "E";
+                        break;
+                    case 2:
+                        orientationString = "S";
+                        break;
+                    case 3:
+                        orientationString = "W";
+                        break;
+                }
+                return (20 - robotPosition / 15) + ", " + (robotPosition % 15 + 1) + ", " + orientationString;
+            } else
+                return "N/A";
+        }
+
+        public void updateOrientation(boolean toggle) {
+            if (toggle)
+                orientation = (orientation + 1) % 4;
+            else
+                orientation = (orientation - 1) % 4;
+            ((TextView) findViewById(R.id.robot_position)).setText(getRobotCoordinate());
+            notifyDataSetChanged();
+        }
+
+        private void markExplored(int position) {
+            explored.add(position);
+        }
+
+        private void markObstacle(int position) {
+            obstacle.add(position);
+        }
+
+        @Override
+        public int getCount() {
+            return items.length;
+        }
+
+        @Override
+        public Object getItem(int position) {
+            return items[position];
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(final int position, View convertView, ViewGroup parent) {
+            if (convertView == null) {
+                // If convertView is null then inflate the appropriate layout file
+                convertView = inflater.inflate(resource, null);
+            }
+
+            convertView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    if (selectionEnabled) {
+                        if (toggleSelection == 0) {
+                            setWaypointPosition(position);
+                        } else if (toggleSelection == 1) {
+                            if (!(position % 15 > 12 || position / 15 < 2)) {
+                                setRobotPosition(position);
+                            }
+                        }
+                    }
+                }
+            });
+
+            ImageView robotOrientation = (ImageView) convertView.findViewById(R.id.cell_image);
+            robotOrientation.setImageResource(0);
+
+            // Layer 1: Obstacle/empty/unexplored
+            if (obstacle.contains(position))
+                convertView.setBackgroundResource(R.drawable.obstacle);
+            else if (explored.contains(position))
+                convertView.setBackgroundResource(R.drawable.empty);
+            else
+                convertView.setBackgroundResource(R.drawable.empty_unexplored);
+
+            // Layer 2: Waypoint, home & goal
+            if (position == waypointPosition)
+                convertView.setBackgroundResource(R.drawable.way_point);
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 3; j++) {
+                    if (position == ((20 - 1) - i) * 15 + j)
+                        convertView.setBackgroundResource(R.drawable.home);
+                    else if (position == (i * 15 + (14 - j)))
+                        convertView.setBackgroundResource(R.drawable.goal);
+                }
+            }
+
+            // Layer 3: Robot
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 3; j++) {
+                    if (position == (robotPosition - i * 15) + j)
+                        convertView.setBackgroundResource(robot);
+                }
+            }
+            if (position == robotPosition - 14) {
+                robotOrientation.setImageResource(R.drawable.ic_navigation_white_48px);
+                robotOrientation.setRotation(orientation * 90);
+            }
+
+            // Set height and width constraints for the image view
+            //convertView.setLayoutParams(new LinearLayout.LayoutParams(pixels, pixels));
+            return convertView;
         }
     }
 }

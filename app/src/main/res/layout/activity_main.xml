@@ -224,19 +224,19 @@
                     android:id="@+id/rotate_left"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:padding="21dp"
+                    android:padding="24dp"
                     android:src="@drawable/ic_rotate_90_degrees_ccw_black_48px"/>
                 <ImageButton
                     android:id="@+id/forward"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:padding="21dp"
+                    android:padding="24dp"
                     android:src="@drawable/ic_arrow_upward_black_48px"/>
                 <ImageButton
                     android:id="@+id/rotate_right"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:padding="21dp"
+                    android:padding="24dp"
                     android:scaleX="-1"
                     android:src="@drawable/ic_rotate_90_degrees_ccw_black_48px"/>
 
@@ -308,7 +308,9 @@
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
         android:layout_above="@id/footer"
-        android:layout_below="@id/header">
+        android:layout_below="@id/header"
+        android:paddingEnd="6dp"
+        android:paddingStart="6dp">
 
         <ImageButton
             android:id="@+id/set_rotate_left"

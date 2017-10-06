@@ -18,7 +18,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CompoundButton;
-import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.RadioGroup;
 import android.widget.Toast;
 import android.widget.ToggleButton;
@@ -28,16 +28,15 @@ import java.util.Set;
 
 public class DeviceListFragment extends Fragment {
 
+    public static OnFragmentInteractionListener mListener;
     private static BluetoothAdapter BTAdapter;
     public ArrayList<DeviceItem> deviceItemList;
     private DeviceItemRecyclerViewAdapter mAdapter;
-    private FrameLayout placeholder;
+    private LinearLayout startScreen;
     private RecyclerView deviceItemListView;
     private RadioGroup connectMethod;
     private boolean connectAsServer;
     private ToggleButton scan;
-    private Button connect;
-
     private final BroadcastReceiver bcReciever = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
@@ -55,8 +54,7 @@ public class DeviceListFragment extends Fragment {
             }
         }
     };
-
-    public static OnFragmentInteractionListener mListener;
+    private Button connect;
 
     public DeviceListFragment() {
         // Required empty public constructor
@@ -82,7 +80,6 @@ public class DeviceListFragment extends Fragment {
         mAdapter = new DeviceItemRecyclerViewAdapter(deviceItemList, getContext(), this);
         mAdapter.setHasStableIds(true);
 
-        placeholder = (FrameLayout) view.findViewById(R.id.placeholder);
         deviceItemListView = (RecyclerView) view.findViewById(R.id.device_list);
         deviceItemListView.setLayoutManager(new LinearLayoutManager(getContext()) {
         });
@@ -125,7 +122,8 @@ public class DeviceListFragment extends Fragment {
                     deviceItemListView.setAdapter(mAdapter);
                     getActivity().registerReceiver(bcReciever, filter);
                     BTAdapter.startDiscovery();
-                    placeholder.removeView(view.findViewById(R.id.start_screen));
+                    startScreen = (LinearLayout) view.findViewById(R.id.start_screen);
+                    startScreen.setVisibility(View.GONE);
                 } else {
                     getActivity().unregisterReceiver(bcReciever);
                     BTAdapter.cancelDiscovery();
@@ -183,6 +181,14 @@ public class DeviceListFragment extends Fragment {
 
     public void toggleSelection(boolean toggle) {
         mAdapter.toggleSelection(toggle);
+    }
+
+    public void resetView() {
+        mAdapter.clear();
+        deviceItemListView.setAdapter(mAdapter);
+        startScreen.setVisibility(View.VISIBLE);
+        scan.setText("SCAN");
+        toggleConnectionMode(true);
     }
 
     public interface OnFragmentInteractionListener {

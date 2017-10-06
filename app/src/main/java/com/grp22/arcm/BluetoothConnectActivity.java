@@ -16,14 +16,12 @@ import android.widget.Toast;
 
 public class BluetoothConnectActivity extends AppCompatActivity implements DeviceListFragment.OnFragmentInteractionListener {
 
+    public static final int REQUEST_BLUETOOTH = 420;
     private SharedPreferences sharedPreferences;
     private DeviceListFragment mDeviceListFragment;
     private BluetoothAdapter BTAdapter;
     private ResponseReceiver receiver;
-
     private boolean isRegistered = false;
-
-    public static final int REQUEST_BLUETOOTH = 420;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,17 +49,23 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
         filter.addAction(BluetoothConnectService.CONNECT_SUCCESS);
         filter.addAction(BluetoothConnectService.CONNECT_FAIL);
         filter.addCategory(Intent.CATEGORY_DEFAULT);
-        receiver = new ResponseReceiver();
-        registerReceiver(receiver, filter);
-        isRegistered = true;
-        Log.d("Registered", "woo-hoo");
+        if (!isRegistered) {
+            receiver = new ResponseReceiver();
+            registerReceiver(receiver, filter);
+            isRegistered = true;
+            Log.d("Registered", "hi");
+        }
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        if (isRegistered)
+        if (isRegistered) {
             unregisterReceiver(receiver);
+            Log.d("Unregistered", "bye");
+            isRegistered = false;
+        }
+        mDeviceListFragment.resetView();
     }
 
     @Override
@@ -92,7 +96,6 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
                 Toast.makeText(getApplicationContext(), "Successfully connected", Toast.LENGTH_SHORT).show();
                 Intent begin = new Intent(getApplicationContext(), MainActivity.class);
                 startActivity(begin);
-                finish();
             }
             if (action.equals(BluetoothConnectService.CONNECT_FAIL)) {
                 Toast.makeText(getApplicationContext(), "Fail to connect", Toast.LENGTH_SHORT).show();

@@ -22,6 +22,15 @@ import java.util.UUID;
 
 public class BluetoothConnectService extends IntentService {
 
+    public static final String CONNECT_SUCCESS = "com.grp22.arcm.CONNECTION_SUCCESSFUL";
+    public static final String CONNECT_FAIL = "com.grp22.arcm.CONNECTION_FAIL";
+    public static final String CONNECTION_INTERRUPTED = "com.grp22.arcm.CONNECTION_INTERRUPTED";
+    public static final String CONNECTION_RECOVERED = "com.grp22.arcm.CONNECTION_RECOVERED";
+    public static final String DISCONNECTED = "com.grp22.arcm.DISCONNECTED";
+    public static final String STRING_RECEIVED = "com.grp22.arcm.STRING_RECEIVED";
+    private final Object lock = new Object();
+    // Binder given to clients
+    private final IBinder mBinder = new LocalBinder();
     private boolean connectAsServer;
     private BluetoothDevice device;
     private BluetoothServerSocket serverSocket;
@@ -34,31 +43,15 @@ public class BluetoothConnectService extends IntentService {
     private Runnable reconnectRunnable;
     private Thread reconnectThread;
     private int timeout;
+    private boolean isStopped = false;
 
-    public static final String CONNECT_SUCCESS = "com.grp22.arcm.CONNECTION_SUCCESSFUL";
-    public static final String CONNECT_FAIL = "com.grp22.arcm.CONNECTION_FAIL";
-    public static final String CONNECTION_INTERRUPTED = "com.grp22.arcm.CONNECTION_INTERRUPTED";
-    public static final String CONNECTION_RECOVERED = "com.grp22.arcm.CONNECTION_RECOVERED";
-    public static final String DISCONNECTED = "com.grp22.arcm.DISCONNECTED";
-    public static final String STRING_RECEIVED = "com.grp22.arcm.STRING_RECEIVED";
-
-    // Binder given to clients
-    private final IBinder mBinder = new LocalBinder();
-
-    public class LocalBinder extends Binder {
-        BluetoothConnectService getService() {
-            // Return this instance of LocalService so clients can call public methods
-            return BluetoothConnectService.this;
-        }
+    public BluetoothConnectService() {
+        super("BluetoothConnectService");
     }
 
     @Override
     public IBinder onBind(Intent intent) {
         return mBinder;
-    }
-
-    public BluetoothConnectService() {
-        super("BluetoothConnectService");
     }
 
     @Override
@@ -103,6 +96,7 @@ public class BluetoothConnectService extends IntentService {
                         broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
                         sendBroadcast(broadcastIntent);
                         tryReconnecting = true;
+                        isStopped = false;
                         setupStream();
                         receiveFromInputStream();
                         break;
@@ -151,6 +145,7 @@ public class BluetoothConnectService extends IntentService {
                     broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
                     sendBroadcast(broadcastIntent);
                     tryReconnecting = true;
+                    isStopped = false;
                     setupStream();
                     receiveFromInputStream();
                     break;
@@ -243,6 +238,7 @@ public class BluetoothConnectService extends IntentService {
                             broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
                             sendBroadcast(broadcastIntent);
                             tryReconnecting = true;
+                            isStopped = false;
                             setupStream();
                             receiveFromInputStream();
                             break;
@@ -293,6 +289,7 @@ public class BluetoothConnectService extends IntentService {
                                 broadcastIntent.setAction(CONNECTION_RECOVERED);
                                 broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
                                 sendBroadcast(broadcastIntent);
+                                isStopped = false;
                                 setupStream();
                                 receiveFromInputStream();
                             }
@@ -310,7 +307,9 @@ public class BluetoothConnectService extends IntentService {
                                     break;
                             }
                             if (!clientSocket.isConnected()) {
-                                stop();
+                                synchronized (lock) {
+                                    stop();
+                                }
                                 reconnectThread.interrupt();
                             }
                         }
@@ -351,11 +350,21 @@ public class BluetoothConnectService extends IntentService {
         } catch (IOException e) {
             Log.e("Error", "Could not close the connect socket", e);
         } finally {
-            Log.d("Akhirnya", "ke sini");
-            broadcastIntent = new Intent();
-            broadcastIntent.setAction(DISCONNECTED);
-            broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
-            sendBroadcast(broadcastIntent);
+            if (!isStopped) {
+                Log.d("Akhirnya", "ke sini");
+                broadcastIntent = new Intent();
+                broadcastIntent.setAction(DISCONNECTED);
+                broadcastIntent.addCategory(Intent.CATEGORY_DEFAULT);
+                sendBroadcast(broadcastIntent);
+                isStopped = true;
+            }
+        }
+    }
+
+    public class LocalBinder extends Binder {
+        BluetoothConnectService getService() {
+            // Return this instance of LocalService so clients can call public methods
+            return BluetoothConnectService.this;
         }
     }
 }
