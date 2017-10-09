@@ -62,6 +62,9 @@ public class MainActivity extends AppCompatActivity {
     private ResponseReceiver receiver;
     private IntentFilter filter;
     private TextView status;
+    private ImageButton forward;
+    private ImageButton rotateLeft;
+    private ImageButton rotateRight;
     private RelativeLayout header;
     private RelativeLayout footer;
     private LinearLayout actionModeTop;
@@ -74,6 +77,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean isRegistered = false;
     private boolean[] allowManualUpdate = {false, false};
     private ProgressDialog progressDialog;
+    private boolean isInterrupted;
     private boolean isPreviouslyRecovered;
     private int orientation = 0; // 0 = up, 1 = right, 2 = down, 3 = left
     private ArrayList<String> mapDescriptor;
@@ -207,8 +211,12 @@ public class MainActivity extends AppCompatActivity {
                 String startingCoordinate = mapAdapter.getRobotCoordinate();
                 if (startingCoordinate.equals("N/A"))
                     mService.sendToOutputStream("pSP,-1,-1,0");
-                else
+                else {
                     mService.sendToOutputStream("pSP," + startingCoordinate.replaceAll("\\s+", ""));
+                    forward.setEnabled(true);
+                    rotateLeft.setEnabled(true);
+                    rotateRight.setEnabled(true);
+                }
             }
             mapAdapter.setSelectionEnabled(false);
             toggleViewGroupVisibility(header, View.VISIBLE);
@@ -254,10 +262,32 @@ public class MainActivity extends AppCompatActivity {
         stopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Toast.makeText(getApplicationContext(), "Disconnecting...", Toast.LENGTH_SHORT).show();
-                mService.stop();
-                unbindService(mConnection);
-                mBound = false;
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Confirm to Exit")
+                        .setMessage("Are you sure to disconnect and return to device selection screen?")
+                        .setPositiveButton("DISCONNECT", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialogInterface, int i) {
+                                Toast.makeText(getApplicationContext(), "Disconnecting...", Toast.LENGTH_SHORT).show();
+                                mService.stop();
+                                unbindService(mConnection);
+                                mBound = false;
+                            }
+                        })
+                        .setNegativeButton("CANCEL", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialogInterface, int i) {
+                                dialogInterface.dismiss();
+                            }
+                        })
+                        .setOnDismissListener(new DialogInterface.OnDismissListener() {
+                            @Override
+                            public void onDismiss(DialogInterface dialogInterface) {
+                                if (isInterrupted && !progressDialog.isShowing())
+                                    progressDialog.show();
+                            }
+                        })
+                        .show();
             }
         });
 
@@ -305,8 +335,9 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        ImageButton forward = (ImageButton) findViewById(R.id.forward);
+        forward = (ImageButton) findViewById(R.id.forward);
         forward.setOnTouchListener(new ControllerListener("forward"));
+        forward.setEnabled(false);
 
         /*ImageButton reverse = (ImageButton) findViewById(R.id.reverse);
         reverse.getDrawable().setAlpha(0);
@@ -317,11 +348,13 @@ public class MainActivity extends AppCompatActivity {
         ImageButton right = (ImageButton) findViewById(R.id.right);
         right.setOnTouchListener(new ControllerListener("right"));*/
 
-        ImageButton rotateLeft = (ImageButton) findViewById(R.id.rotate_left);
+        rotateLeft = (ImageButton) findViewById(R.id.rotate_left);
         rotateLeft.setOnTouchListener(new ControllerListener("rotateLeft"));
+        rotateLeft.setEnabled(false);
 
-        ImageButton rotateRight = (ImageButton) findViewById(R.id.rotate_right);
+        rotateRight = (ImageButton) findViewById(R.id.rotate_right);
         rotateRight.setOnTouchListener(new ControllerListener("rotateRight"));
+        rotateRight.setEnabled(false);
 
         Button exploreArena = (Button) findViewById(R.id.explore_arena);
         exploreArena.setOnClickListener(new View.OnClickListener() {
@@ -353,11 +386,11 @@ public class MainActivity extends AppCompatActivity {
         progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
         progressDialog.setIndeterminate(true);
         progressDialog.setCanceledOnTouchOutside(false);
+        progressDialog.setCancelable(false);
         progressDialog.setButton(DialogInterface.BUTTON_NEGATIVE, "Disconnect Now", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
                 stopButton.callOnClick();
-                dialogInterface.dismiss();
             }
         });
     }
@@ -434,22 +467,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        new AlertDialog.Builder(this)
-                .setTitle("Confirm to Exit")
-                .setMessage("Are you sure to disconnect and return to device selection screen?")
-                .setPositiveButton("DISCONNECT", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        ((Button) findViewById(R.id.stop)).callOnClick();
-                    }
-                })
-                .setNegativeButton("CANCEL", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        return;
-                    }
-                })
-                .show();
+        ((Button) findViewById(R.id.stop)).callOnClick();
     }
 
     @Override
@@ -506,7 +524,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void sendCommand(String command) {
-        String[] commandList = {"hINSTR\nF", "hINSTR\nL", "reverse", "hINSTR\nR"};
+        String[] commandList = {"hINSTR;F", "hINSTR;L", "reverse", "hINSTR;R"};
 
         switch (command) {
             case "forward":
@@ -607,8 +625,8 @@ public class MainActivity extends AppCompatActivity {
                     mapAdapter.notifyDataSetChanged();
                 }
                 break;
-            case "INSTR":
-                String statusText = inputSplitted[1];
+            default:
+                String statusText = inputSplitted[0].split(";")[1];
                 switch (statusText) {
                     case "F":
                         status.setText("MOVING FORWARD");
@@ -919,10 +937,12 @@ public class MainActivity extends AppCompatActivity {
             String action = intent.getAction();
             switch (action) {
                 case BluetoothConnectService.CONNECTION_INTERRUPTED:
+                    isInterrupted = true;
                     isPreviouslyRecovered = false;
                     progressDialog.show();
                     break;
                 case BluetoothConnectService.CONNECTION_RECOVERED:
+                    isInterrupted = false;
                     if (!isPreviouslyRecovered) {
                         progressDialog.dismiss();
                         Toast.makeText(getApplicationContext(), "Connection recovered", Toast.LENGTH_SHORT).show();
@@ -930,6 +950,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                     break;
                 case BluetoothConnectService.DISCONNECTED:
+                    isInterrupted = false;
                     if (progressDialog.isShowing())
                         progressDialog.dismiss();
                     Log.d("T e r", "p a n g g i l");
