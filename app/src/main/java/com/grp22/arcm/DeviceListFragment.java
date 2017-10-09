@@ -103,6 +103,8 @@ public class DeviceListFragment extends Fragment {
             }
         });
 
+        startScreen = (LinearLayout) view.findViewById(R.id.start_screen);
+
         scan = (ToggleButton) view.findViewById(R.id.scan);
         scan.setText("scan");
         scan.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
@@ -122,7 +124,6 @@ public class DeviceListFragment extends Fragment {
                     deviceItemListView.setAdapter(mAdapter);
                     getActivity().registerReceiver(bcReciever, filter);
                     BTAdapter.startDiscovery();
-                    startScreen = (LinearLayout) view.findViewById(R.id.start_screen);
                     startScreen.setVisibility(View.GONE);
                 } else {
                     getActivity().unregisterReceiver(bcReciever);

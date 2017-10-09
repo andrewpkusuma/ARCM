@@ -58,6 +58,11 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
     }
 
     @Override
+    public void onBackPressed() {
+        moveTaskToBack(true);
+    }
+
+    @Override
     protected void onStop() {
         super.onStop();
         if (isRegistered) {

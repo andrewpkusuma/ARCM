@@ -17,7 +17,8 @@
             android:layout_marginBottom="3dp"
             android:text="Movement control direction reference"
             android:textColor="@android:color/black"
-            android:textSize="18dp"/>
+            android:textSize="18dp"
+            android:textStyle="bold"/>
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -53,7 +54,8 @@
             android:layout_marginBottom="3dp"
             android:text="Bluetooth command burst mode delay"
             android:textColor="@android:color/black"
-            android:textSize="18dp"/>
+            android:textSize="18dp"
+            android:textStyle="bold"/>
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -103,7 +105,8 @@
             android:layout_marginBottom="3dp"
             android:text="Connection timeout"
             android:textColor="@android:color/black"
-            android:textSize="18dp"/>
+            android:textSize="18dp"
+            android:textStyle="bold"/>
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

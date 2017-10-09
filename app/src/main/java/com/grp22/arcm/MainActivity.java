@@ -51,8 +51,6 @@ import android.widget.ToggleButton;
 import java.util.ArrayList;
 import java.util.Locale;
 
-import static com.grp22.arcm.R.drawable.robot;
-
 public class MainActivity extends AppCompatActivity {
 
     private final int REQ_CODE_SPEECH_INPUT = 69;
@@ -191,7 +189,7 @@ public class MainActivity extends AppCompatActivity {
                 mode.finish();
                 ret = true;
             } else if (item.getItemId() == R.id.action_mode_clear) {
-                mapAdapter.setWaypointPosition(-1);
+                mapAdapter.setWaypointPosition(-100);
             }
             return ret;
         }
@@ -201,7 +199,7 @@ public class MainActivity extends AppCompatActivity {
             mapAdapter.setWaypointPosition(currentWaypoint);
             if (((ToggleButton) findViewById(R.id.toggle_waypoint)).isChecked()) {
                 String waypointCoordinate = mapAdapter.getWaypointCoordinate();
-                if (currentWaypoint == -1)
+                if (currentWaypoint == -100)
                     mService.sendToOutputStream("pWP,-1,-1");
                 else
                     mService.sendToOutputStream("pWP," + waypointCoordinate.replaceAll("\\s+", ""));
@@ -290,7 +288,6 @@ public class MainActivity extends AppCompatActivity {
         refreshMap.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                mService.sendToOutputStream("sendArenaInfo");
                 allowManualUpdate[0] = true;
                 allowManualUpdate[1] = true;
             }
@@ -380,6 +377,21 @@ public class MainActivity extends AppCompatActivity {
                 SettingsDialogFragment dialogFragment = SettingsDialogFragment.newInstance();
                 dialogFragment.show(getSupportFragmentManager(), "Settings");
                 return true;
+            case R.id.info:
+                View dialogView = getLayoutInflater().inflate(R.layout.fragment_info_dialog, null);
+                TextView string1 = dialogView.findViewById(R.id.string1);
+                string1.setText(mapDescriptor1);
+                TextView string2 = dialogView.findViewById(R.id.string2);
+                string2.setText(mapDescriptor2);
+                new AlertDialog.Builder(this)
+                        .setView(dialogView)
+                        .setPositiveButton("DONE", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialogInterface, int i) {
+                                dialogInterface.dismiss();
+                            }
+                        })
+                        .show();
             default:
                 return super.onOptionsItemSelected(item);
         }
@@ -422,8 +434,22 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        ((Button) findViewById(R.id.stop)).callOnClick();
-        super.onBackPressed();
+        new AlertDialog.Builder(this)
+                .setTitle("Confirm to Exit")
+                .setMessage("Are you sure to disconnect and return to device selection screen?")
+                .setPositiveButton("DISCONNECT", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        ((Button) findViewById(R.id.stop)).callOnClick();
+                    }
+                })
+                .setNegativeButton("CANCEL", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        return;
+                    }
+                })
+                .show();
     }
 
     @Override
@@ -480,7 +506,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void sendCommand(String command) {
-        String[] commandList = {"forward", "rotateLeft", "reverse", "rotateRight"};
+        String[] commandList = {"hINSTR\nF", "hINSTR\nL", "reverse", "hINSTR\nR"};
 
         switch (command) {
             case "forward":
@@ -648,10 +674,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateMap() {
+        Log.d("Pembaharuan", "dimulai");
+        Log.d(mapDescriptor1, mapDescriptor2);
         String mapDescriptor1Raw = MapDecoder.decode(mapDescriptor1, true);
         String mapDescriptor2Raw = MapDecoder.decode(mapDescriptor2, false);
 
         MapAdapter mapAdapter = (MapAdapter) gridView.getAdapter();
+        mapAdapter.clearArrays();
 
         int index = 0;
         for (int i = 0; i < mapDescriptor1Raw.length(); i++) {
@@ -961,7 +990,7 @@ public class MainActivity extends AppCompatActivity {
         Context context;
         Object[] items;
         int resource;
-        int waypointPosition = -1;
+        int waypointPosition = -100;
         int robotPosition = -100;
         ArrayList<Integer> explored = new ArrayList<>();
         ArrayList<Integer> obstacle = new ArrayList<>();
@@ -1050,6 +1079,11 @@ public class MainActivity extends AppCompatActivity {
             obstacle.add(position);
         }
 
+        private void clearArrays() {
+            explored.clear();
+            obstacle.clear();
+        }
+
         @Override
         public int getCount() {
             return items.length;
@@ -1075,14 +1109,11 @@ public class MainActivity extends AppCompatActivity {
             convertView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    if (selectionEnabled) {
-                        if (toggleSelection == 0) {
+                    if (selectionEnabled && (!(position % 15 > 12 || position / 15 < 2))) {
+                        if (toggleSelection == 0)
                             setWaypointPosition(position);
-                        } else if (toggleSelection == 1) {
-                            if (!(position % 15 > 12 || position / 15 < 2)) {
-                                setRobotPosition(position);
-                            }
-                        }
+                        else if (toggleSelection == 1)
+                            setRobotPosition(position);
                     }
                 }
             });
@@ -1098,9 +1129,7 @@ public class MainActivity extends AppCompatActivity {
             else
                 convertView.setBackgroundResource(R.drawable.empty_unexplored);
 
-            // Layer 2: Waypoint, home & goal
-            if (position == waypointPosition)
-                convertView.setBackgroundResource(R.drawable.way_point);
+            // Layer 2: Home & goal
             for (int i = 0; i < 3; i++) {
                 for (int j = 0; j < 3; j++) {
                     if (position == ((20 - 1) - i) * 15 + j)
@@ -1110,11 +1139,17 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
-            // Layer 3: Robot
+            // Layer 3: Waypoint & Robot
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 3; j++) {
+                    if (position == (waypointPosition - i * 15) + j)
+                        convertView.setBackgroundResource(R.drawable.way_point);
+                }
+            }
             for (int i = 0; i < 3; i++) {
                 for (int j = 0; j < 3; j++) {
                     if (position == (robotPosition - i * 15) + j)
-                        convertView.setBackgroundResource(robot);
+                        convertView.setBackgroundResource(R.drawable.robot);
                 }
             }
             if (position == robotPosition - 14) {
