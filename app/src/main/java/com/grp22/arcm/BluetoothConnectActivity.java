@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.support.v4.app.FragmentManager;
 import android.support.v7.app.AppCompatActivity;
@@ -48,6 +49,7 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothConnectService.CONNECT_SUCCESS);
         filter.addAction(BluetoothConnectService.CONNECT_FAIL);
+        filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         filter.addCategory(Intent.CATEGORY_DEFAULT);
         if (!isRegistered) {
             receiver = new ResponseReceiver();
@@ -78,8 +80,18 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
         if (BTAdapter.isDiscovering())
             BTAdapter.cancelDiscovery();
         BluetoothDevice BTDevice = BTAdapter.getRemoteDevice(address);
-        if (BTDevice.getBondState() == BluetoothDevice.BOND_NONE)
-            BTDevice.createBond();
+        Log.d("Bond status", Integer.toString(BTDevice.getBondState()));
+        if (BTDevice.getBondState() != BluetoothDevice.BOND_BONDED) {
+            Log.d("I accept", "your nomination");
+            final BluetoothDevice btDevice = BTDevice;
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    SystemClock.sleep(100);
+                    btDevice.createBond();
+                }
+            }).start();
+        }
     }
 
     @Override
@@ -107,6 +119,10 @@ public class BluetoothConnectActivity extends AppCompatActivity implements Devic
                 mDeviceListFragment.toggleConnect(true);
                 mDeviceListFragment.toggleConnectionMode(true);
                 mDeviceListFragment.toggleSelection(true);
+            }
+            if (action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED) && intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, -1) == BluetoothDevice.BOND_BONDED) {
+                Toast.makeText(getApplicationContext(), "Device paired", Toast.LENGTH_SHORT).show();
+                mDeviceListFragment.rescan();
             }
         }
     }

@@ -192,6 +192,11 @@ public class DeviceListFragment extends Fragment {
         toggleConnectionMode(true);
     }
 
+    public void rescan() {
+        resetView();
+        scan.setChecked(true);
+    }
+
     public interface OnFragmentInteractionListener {
         void startPairing(String address);
 
