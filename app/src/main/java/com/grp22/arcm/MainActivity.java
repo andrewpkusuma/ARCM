@@ -76,10 +76,11 @@ public class MainActivity extends AppCompatActivity {
     private boolean mBound = false;
     private boolean isRegistered = false;
     private boolean[] allowManualUpdate = {false, false};
+    private AlertDialog confirmExitDialog;
     private ProgressDialog progressDialog;
     private boolean isInterrupted;
     private boolean isPreviouslyRecovered;
-    private int orientation = 0; // 0 = up, 1 = right, 2 = down, 3 = left
+    private int orientation = 0; // 0 = N, 1 = E, 2 = S, 3 = W
     private ArrayList<String> mapDescriptor;
     private String mapDescriptor1;
     private String mapDescriptor2;
@@ -262,7 +263,7 @@ public class MainActivity extends AppCompatActivity {
         stopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                new AlertDialog.Builder(MainActivity.this)
+                confirmExitDialog = new AlertDialog.Builder(MainActivity.this)
                         .setTitle("Confirm to Exit")
                         .setMessage("Are you sure to disconnect and return to device selection screen?")
                         .setPositiveButton("DISCONNECT", new DialogInterface.OnClickListener() {
@@ -287,7 +288,8 @@ public class MainActivity extends AppCompatActivity {
                                     progressDialog.show();
                             }
                         })
-                        .show();
+                        .create();
+                confirmExitDialog.show();
             }
         });
 
@@ -574,121 +576,85 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }).start();
             } else {
-                mService.sendToOutputStream(command);
+                Toast.makeText(this, "Command not recognized", Toast.LENGTH_SHORT).show();
             }
         }
     }
 
     private void handleStringInput(String input) {
-        //try {
-        String[] inputSplitted = input.split("\\s+");
-        switch (inputSplitted[0]) {
-            case "MAP":
-                if (toggleRefresh.isChecked() || allowManualUpdate[1]) {
-                    allowManualUpdate[1] = false;
-                    if (inputSplitted.length == 2) {
-                        mapDescriptor.add("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
-                        mapDescriptor.add(inputSplitted[1]);
-                    } else {
-                        mapDescriptor.add(inputSplitted[1]);
-                        mapDescriptor.add(inputSplitted[2]);
-                    }
-                    mapDescriptor1 = mapDescriptor.get(0);
-                    mapDescriptor2 = mapDescriptor.get(1);
-                    updateMap();
-                    mapDescriptor.clear();
-                }
-                break;
-            case "BOT_POS":
-                String positionString = inputSplitted[1];
-                String[] positionStrings = positionString.split(",");
-                synchronized (lock) {
-                    switch (positionStrings[2]) {
-                        case "N":
-                            orientation = 0;
-                            break;
-                        case "E":
-                            orientation = 1;
-                            break;
-                        case "W":
-                            orientation = 3;
-                            break;
-                        case "S":
-                            orientation = 2;
-                            break;
-                    }
-                }
-                if (toggleRefresh.isChecked() || allowManualUpdate[0]) {
-                    allowManualUpdate[0] = false;
-                    MapAdapter mapAdapter = (MapAdapter) gridView.getAdapter();
-                    mapAdapter.setRobotPosition((20 - Integer.parseInt(positionStrings[0])) * 15 + (Integer.parseInt(positionStrings[1]) - 1));
-                    mapAdapter.notifyDataSetChanged();
-                }
-                break;
-            default:
-                String statusText = inputSplitted[0].split(";")[1];
-                switch (statusText) {
-                    case "F":
-                        status.setText("MOVING FORWARD");
-                        break;
-                    case "L":
-                        status.setText("TURNING LEFT");
-                        break;
-                    case "R":
-                        status.setText("TURNING RIGHT");
-                        break;
-                    case "C":
-                        status.setText("CALIBRATING");
-                        break;
-                    default:
-                        int numberOfTimes = Integer.parseInt(statusText);
-                        if (numberOfTimes == 0)
-                            status.setText("STOP");
-                        else if (numberOfTimes == 1)
-                            status.setText("MOVING FORWARD");
-                        else
-                            status.setText("FORWARD " + numberOfTimes + " TIMES");
-                }
-                break;
-        }
-            /*
-            JSONObject inputJsonObject = new JSONObject(input);
-            if (inputJsonObject.has("robotPosition")) {
-                String positionString = inputJsonObject.getString("robotPosition");
-                String[] positionStrings = positionString.substring(1, positionString.length() - 1).split(",");
-                int[] positions = new int[positionStrings.length];
-                for (int i = 0; i < positionStrings.length; i++)
-                    positions[i] = Integer.parseInt(positionStrings[i]);
-                synchronized (lock) {
-                    orientation = positions[2] / 90;
-                }
-                if (toggleRefresh.isChecked() || allowManualUpdate[0]) {
-                    allowManualUpdate[0] = false;
-                    MapAdapter mapAdapter = (MapAdapter) gridView.getAdapter();
-                    mapAdapter.setRobotPosition((20 - positions[1]) * 15 + (positions[0] - 1));
-                    mapAdapter.notifyDataSetChanged();
-                }
-            } else if (inputJsonObject.has("grid") && (toggleRefresh.isChecked() || allowManualUpdate[1])) {
-                allowManualUpdate[1] = false;
-                synchronized (lock) {
-                    mapDescriptor.add("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
-                    mapDescriptor.add(inputJsonObject.getString("grid"));
-                    if (mapDescriptor.size() == 2) {
+        String[] separated = input.split("\\r"); // in case the input overflows the stream and are combined as one
+        for (String s : separated) {
+            String[] inputSplitted = s.split("\\s+");
+            switch (inputSplitted[0]) {
+                case "MAP":
+                    if (toggleRefresh.isChecked() || allowManualUpdate[1]) {
+                        allowManualUpdate[1] = false;
+                        if (inputSplitted.length == 2) {
+                            mapDescriptor.add("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
+                            mapDescriptor.add(inputSplitted[1]);
+                        } else {
+                            mapDescriptor.add(inputSplitted[1]);
+                            mapDescriptor.add(inputSplitted[2]);
+                        }
                         mapDescriptor1 = mapDescriptor.get(0);
                         mapDescriptor2 = mapDescriptor.get(1);
                         updateMap();
-                        status.setText("MAP UPDATED");
                         mapDescriptor.clear();
                     }
-                }
-            } else if (inputJsonObject.has("status")) {
-                String statusText = inputJsonObject.getString("status");
-                status.setText(statusText.toUpperCase());
+                    break;
+                case "BOT_POS":
+                    String positionString = inputSplitted[1];
+                    String[] positionStrings = positionString.split(",");
+                    synchronized (lock) {
+                        switch (positionStrings[2]) {
+                            case "N":
+                                orientation = 0;
+                                break;
+                            case "E":
+                                orientation = 1;
+                                break;
+                            case "W":
+                                orientation = 3;
+                                break;
+                            case "S":
+                                orientation = 2;
+                                break;
+                        }
+                    }
+                    if (toggleRefresh.isChecked() || allowManualUpdate[0]) {
+                        allowManualUpdate[0] = false;
+                        MapAdapter mapAdapter = (MapAdapter) gridView.getAdapter();
+                        mapAdapter.setRobotPosition((19 - Integer.parseInt(positionStrings[0])) * 15 + (Integer.parseInt(positionStrings[1])));
+                        mapAdapter.notifyDataSetChanged();
+                    }
+                    break;
+                default:
+                    String statusText = inputSplitted[0].split(";")[1];
+                    switch (statusText) {
+                        case "F":
+                            status.setText("MOVING FORWARD");
+                            break;
+                        case "L":
+                            status.setText("TURNING LEFT");
+                            break;
+                        case "R":
+                            status.setText("TURNING RIGHT");
+                            break;
+                        case "A":
+                            status.setText("CALIBRATING");
+                            break;
+                        default:
+                            int numberOfTimes = Integer.parseInt(statusText);
+                            if (numberOfTimes == 0)
+                                status.setText("STOP");
+                            else if (numberOfTimes == 1)
+                                status.setText("MOVING FORWARD");
+                            else
+                                status.setText("FORWARD " + numberOfTimes + " TIMES");
+                    }
+                    break;
             }
-        } catch (JSONException e) {
-            e.printStackTrace();
         }
-        */
     }
 
     private void updateMap() {
@@ -953,6 +919,8 @@ public class MainActivity extends AppCompatActivity {
                     isInterrupted = false;
                     if (progressDialog.isShowing())
                         progressDialog.dismiss();
+                    if (confirmExitDialog.isShowing())
+                        confirmExitDialog.dismiss();
                     Log.d("T e r", "p a n g g i l");
                     Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_SHORT).show();
                     finish();
@@ -1056,7 +1024,7 @@ public class MainActivity extends AppCompatActivity {
 
         public String getWaypointCoordinate() {
             if (waypointPosition > 0)
-                return (20 - waypointPosition / 15) + ", " + (waypointPosition % 15 + 1);
+                return (19 - waypointPosition / 15) + ", " + (waypointPosition % 15);
             else
                 return "N/A";
         }
@@ -1078,7 +1046,7 @@ public class MainActivity extends AppCompatActivity {
                         orientationString = "W";
                         break;
                 }
-                return (20 - robotPosition / 15) + ", " + (robotPosition % 15 + 1) + ", " + orientationString;
+                return (19 - robotPosition / 15) + ", " + (robotPosition % 15) + ", " + orientationString;
             } else
                 return "N/A";
         }
@@ -1130,7 +1098,7 @@ public class MainActivity extends AppCompatActivity {
             convertView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    if (selectionEnabled && (!(position % 15 > 12 || position / 15 < 2))) {
+                    if (selectionEnabled && (!(position % 15 == 14 || position / 15 == 0))) {
                         if (toggleSelection == 0)
                             setWaypointPosition(position);
                         else if (toggleSelection == 1)
@@ -1161,19 +1129,19 @@ public class MainActivity extends AppCompatActivity {
             }
 
             // Layer 3: Waypoint & Robot
-            for (int i = 0; i < 3; i++) {
-                for (int j = 0; j < 3; j++) {
+            for (int i = -1; i < 2; i++) {
+                for (int j = -1; j < 2; j++) {
                     if (position == (waypointPosition - i * 15) + j)
                         convertView.setBackgroundResource(R.drawable.way_point);
                 }
             }
-            for (int i = 0; i < 3; i++) {
-                for (int j = 0; j < 3; j++) {
+            for (int i = -1; i < 2; i++) {
+                for (int j = -1; j < 2; j++) {
                     if (position == (robotPosition - i * 15) + j)
                         convertView.setBackgroundResource(R.drawable.robot);
                 }
             }
-            if (position == robotPosition - 14) {
+            if (position == robotPosition) {
                 robotOrientation.setImageResource(R.drawable.ic_navigation_white_48px);
                 robotOrientation.setRotation(orientation * 90);
             }

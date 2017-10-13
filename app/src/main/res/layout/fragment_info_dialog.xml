@@ -58,7 +58,6 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="12dp"
-        android:text="Android Remote Controller Module\nARCM v1.0\nby MDP Group 22\nAY2017/18 Semester 1"/>
-
+        android:text="Android Remote Controller Module\nARCM v1.0\nby MDP Group 22\nAY2017-18 Semester 1"/>
 
 </LinearLayout>
