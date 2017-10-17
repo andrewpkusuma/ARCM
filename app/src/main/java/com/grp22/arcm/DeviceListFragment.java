@@ -166,6 +166,17 @@ public class DeviceListFragment extends Fragment {
     }
 
     @Override
+    public void onStart() {
+        super.onStart();
+        if (mListener == null)
+            try {
+                mListener = (OnFragmentInteractionListener) getActivity();
+            } catch (ClassCastException e) {
+                e.printStackTrace();
+            }
+    }
+
+    @Override
     public void onDetach() {
         super.onDetach();
         mListener = null;
@@ -187,6 +198,7 @@ public class DeviceListFragment extends Fragment {
     public void resetView() {
         mAdapter.clear();
         deviceItemListView.setAdapter(mAdapter);
+        scan.setChecked(false);
         startScreen.setVisibility(View.VISIBLE);
         scan.setText("SCAN");
         toggleConnectionMode(true);

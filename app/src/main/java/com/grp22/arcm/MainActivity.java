@@ -582,8 +582,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void handleStringInput(String input) {
-        String[] separated = input.split("\\r"); // in case the input overflows the stream and are combined as one
+        String[] separated = input.split("\\r\\n|\\n|\\r"); // in case the input overflows the stream and are combined as one
         for (String s : separated) {
+            Log.d("Terpisahkan", s);
             String[] inputSplitted = s.split("\\s+");
             switch (inputSplitted[0]) {
                 case "MAP":
@@ -621,6 +622,7 @@ public class MainActivity extends AppCompatActivity {
                                 break;
                         }
                     }
+                    Log.d("Orientation", Integer.toString(orientation));
                     if (toggleRefresh.isChecked() || allowManualUpdate[0]) {
                         allowManualUpdate[0] = false;
                         MapAdapter mapAdapter = (MapAdapter) gridView.getAdapter();
@@ -919,7 +921,7 @@ public class MainActivity extends AppCompatActivity {
                     isInterrupted = false;
                     if (progressDialog.isShowing())
                         progressDialog.dismiss();
-                    if (confirmExitDialog.isShowing())
+                    if (confirmExitDialog != null && confirmExitDialog.isShowing())
                         confirmExitDialog.dismiss();
                     Log.d("T e r", "p a n g g i l");
                     Toast.makeText(getApplicationContext(), "Disconnected", Toast.LENGTH_SHORT).show();
@@ -1098,7 +1100,7 @@ public class MainActivity extends AppCompatActivity {
             convertView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View view) {
-                    if (selectionEnabled && (!(position % 15 == 14 || position / 15 == 0))) {
+                    if (selectionEnabled && (!(position % 15 == 0 || position % 15 == 14 || position / 15 == 0 || position / 15 == 19))) {
                         if (toggleSelection == 0)
                             setWaypointPosition(position);
                         else if (toggleSelection == 1)
