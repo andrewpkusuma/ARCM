@@ -5,6 +5,8 @@ import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -65,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
     private ImageButton forward;
     private ImageButton rotateLeft;
     private ImageButton rotateRight;
+    private Button calibrate;
     private RelativeLayout header;
     private RelativeLayout footer;
     private LinearLayout actionModeTop;
@@ -81,7 +84,6 @@ public class MainActivity extends AppCompatActivity {
     private boolean isInterrupted;
     private boolean isPreviouslyRecovered;
     private int orientation = 0; // 0 = N, 1 = E, 2 = S, 3 = W
-    private ArrayList<String> mapDescriptor;
     private String mapDescriptor1;
     private String mapDescriptor2;
     private Integer[] list = new Integer[300];
@@ -107,6 +109,7 @@ public class MainActivity extends AppCompatActivity {
     private ActionMode.Callback mCallback = new ActionMode.Callback() {
         MapAdapter mapAdapter;
         int currentWaypoint;
+        int currentRobotPosition;
 
         @Override
         public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
@@ -120,6 +123,7 @@ public class MainActivity extends AppCompatActivity {
             inflater.inflate(R.menu.action_mode, menu);
             mapAdapter = (MapAdapter) gridView.getAdapter();
             currentWaypoint = mapAdapter.getWaypointPosition();
+            currentRobotPosition = mapAdapter.getRobotPosition();
             toggleViewGroupVisibility(header, View.INVISIBLE);
             toggleViewGroupVisibility(footer, View.INVISIBLE);
             toggleViewGroupVisibility(actionModeTop, View.VISIBLE);
@@ -191,10 +195,15 @@ public class MainActivity extends AppCompatActivity {
             boolean ret = false;
             if (item.getItemId() == R.id.action_mode_save) {
                 currentWaypoint = mapAdapter.getWaypointPosition();
+                currentRobotPosition = mapAdapter.getRobotPosition();
                 mode.finish();
                 ret = true;
             } else if (item.getItemId() == R.id.action_mode_clear) {
                 mapAdapter.setWaypointPosition(-100);
+                mapAdapter.setRobotPosition(-100);
+                mapAdapter.clearArrays();
+                mapAdapter.notifyDataSetChanged();
+                status.setText("STATUS");
             }
             return ret;
         }
@@ -202,22 +211,25 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onDestroyActionMode(ActionMode actionMode) {
             mapAdapter.setWaypointPosition(currentWaypoint);
-            if (((ToggleButton) findViewById(R.id.toggle_waypoint)).isChecked()) {
-                String waypointCoordinate = mapAdapter.getWaypointCoordinate();
-                if (currentWaypoint == -100)
-                    mService.sendToOutputStream("pWP,-1,-1");
-                else
-                    mService.sendToOutputStream("pWP," + waypointCoordinate.replaceAll("\\s+", ""));
-            } else if (((ToggleButton) findViewById(R.id.toggle_robot_position)).isChecked()) {
-                String startingCoordinate = mapAdapter.getRobotCoordinate();
-                if (startingCoordinate.equals("N/A"))
-                    mService.sendToOutputStream("pSP,-1,-1,0");
-                else {
-                    mService.sendToOutputStream("pSP," + startingCoordinate.replaceAll("\\s+", ""));
-                    forward.setEnabled(true);
-                    rotateLeft.setEnabled(true);
-                    rotateRight.setEnabled(true);
-                }
+            mapAdapter.setRobotPosition(currentRobotPosition);
+            if (currentWaypoint != -100 && currentRobotPosition != -100) {
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mService.sendToOutputStream("pWP," + mapAdapter.getWaypointCoordinate().replaceAll("\\s+", ""));
+                        SystemClock.sleep(delay);
+                        mService.sendToOutputStream("pSP," + mapAdapter.getRobotCoordinate().replaceAll("\\s+", ""));
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                forward.setEnabled(true);
+                                rotateLeft.setEnabled(true);
+                                rotateRight.setEnabled(true);
+                                calibrate.setEnabled(true);
+                            }
+                        });
+                    }
+                }).start();
             }
             mapAdapter.setSelectionEnabled(false);
             toggleViewGroupVisibility(header, View.VISIBLE);
@@ -245,8 +257,6 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         refreshSettings();
-
-        mapDescriptor = new ArrayList<>();
 
         status = (TextView) findViewById(R.id.status);
 
@@ -358,6 +368,15 @@ public class MainActivity extends AppCompatActivity {
         rotateRight.setOnTouchListener(new ControllerListener("rotateRight"));
         rotateRight.setEnabled(false);
 
+        calibrate = (Button) findViewById(R.id.calibrate);
+        calibrate.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mService.sendToOutputStream("hC");
+            }
+        });
+        calibrate.setEnabled(false);
+
         Button exploreArena = (Button) findViewById(R.id.explore_arena);
         exploreArena.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -414,10 +433,19 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             case R.id.info:
                 View dialogView = getLayoutInflater().inflate(R.layout.fragment_info_dialog, null);
-                TextView string1 = dialogView.findViewById(R.id.string1);
-                string1.setText(mapDescriptor1);
-                TextView string2 = dialogView.findViewById(R.id.string2);
-                string2.setText(mapDescriptor2);
+                ((TextView) dialogView.findViewById(R.id.string1)).setText(mapDescriptor1);
+                ((TextView) dialogView.findViewById(R.id.string2)).setText(mapDescriptor2);
+                dialogView.findViewById(R.id.copy_string).setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                        ClipData clip = ClipData.newPlainText("label", "Part one:\n\n" + mapDescriptor1 + "\n\nPart two:\n\n" + mapDescriptor2);
+                        if (clipboard != null) {
+                            clipboard.setPrimaryClip(clip);
+                        }
+                        Toast.makeText(getApplicationContext(), "Copied to clipboard", Toast.LENGTH_SHORT).show();
+                    }
+                });
                 new AlertDialog.Builder(this)
                         .setView(dialogView)
                         .setPositiveButton("DONE", new DialogInterface.OnClickListener() {
@@ -584,29 +612,21 @@ public class MainActivity extends AppCompatActivity {
     private void handleStringInput(String input) {
         String[] separated = input.split("\\r\\n|\\n|\\r"); // in case the input overflows the stream and are combined as one
         for (String s : separated) {
-            Log.d("Terpisahkan", s);
-            String[] inputSplitted = s.split("\\s+");
-            switch (inputSplitted[0]) {
-                case "MAP":
-                    if (toggleRefresh.isChecked() || allowManualUpdate[1]) {
-                        allowManualUpdate[1] = false;
-                        if (inputSplitted.length == 2) {
-                            mapDescriptor.add("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
-                            mapDescriptor.add(inputSplitted[1]);
-                        } else {
-                            mapDescriptor.add(inputSplitted[1]);
-                            mapDescriptor.add(inputSplitted[2]);
+            synchronized (lock) {
+                Log.d("Terpisahkan", s);
+                String[] inputSplitted = s.split("\\s+");
+                switch (inputSplitted[0]) {
+                    case "MAP":
+                        if (toggleRefresh.isChecked() || allowManualUpdate[1]) {
+                            allowManualUpdate[1] = false;
+                            mapDescriptor1 = inputSplitted[1];
+                            mapDescriptor2 = inputSplitted[2];
+                            updateMap();
                         }
-                        mapDescriptor1 = mapDescriptor.get(0);
-                        mapDescriptor2 = mapDescriptor.get(1);
-                        updateMap();
-                        mapDescriptor.clear();
-                    }
-                    break;
-                case "BOT_POS":
-                    String positionString = inputSplitted[1];
-                    String[] positionStrings = positionString.split(",");
-                    synchronized (lock) {
+                        break;
+                    case "BOT_POS":
+                        String positionString = inputSplitted[1];
+                        String[] positionStrings = positionString.split(",");
                         switch (positionStrings[2]) {
                             case "N":
                                 orientation = 0;
@@ -621,47 +641,57 @@ public class MainActivity extends AppCompatActivity {
                                 orientation = 2;
                                 break;
                         }
-                    }
-                    Log.d("Orientation", Integer.toString(orientation));
-                    if (toggleRefresh.isChecked() || allowManualUpdate[0]) {
-                        allowManualUpdate[0] = false;
-                        MapAdapter mapAdapter = (MapAdapter) gridView.getAdapter();
-                        mapAdapter.setRobotPosition((19 - Integer.parseInt(positionStrings[0])) * 15 + (Integer.parseInt(positionStrings[1])));
-                        mapAdapter.notifyDataSetChanged();
-                    }
-                    break;
-                default:
-                    String statusText = inputSplitted[0].split(";")[1];
-                    switch (statusText) {
-                        case "F":
-                            status.setText("MOVING FORWARD");
-                            break;
-                        case "L":
-                            status.setText("TURNING LEFT");
-                            break;
-                        case "R":
-                            status.setText("TURNING RIGHT");
-                            break;
-                        case "A":
-                            status.setText("CALIBRATING");
-                            break;
-                        default:
-                            int numberOfTimes = Integer.parseInt(statusText);
-                            if (numberOfTimes == 0)
-                                status.setText("STOP");
-                            else if (numberOfTimes == 1)
+                        Log.d("Orientation", Integer.toString(orientation));
+                        if (toggleRefresh.isChecked() || allowManualUpdate[0]) {
+                            allowManualUpdate[0] = false;
+                            MapAdapter mapAdapter = (MapAdapter) gridView.getAdapter();
+                            try {
+                                mapAdapter.setRobotPosition((19 - Integer.parseInt(positionStrings[0])) * 15 + (Integer.parseInt(positionStrings[1])));
+                                mapAdapter.notifyDataSetChanged();
+                            } catch (NumberFormatException n) {
+                                Log.d("What", "the hell");
+                            }
+                        }
+                        break;
+                    default:
+                        String statusText = inputSplitted[0].split(";")[1];
+                        switch (statusText) {
+                            case "F":
                                 status.setText("MOVING FORWARD");
-                            else
-                                status.setText("FORWARD " + numberOfTimes + " TIMES");
-                    }
-                    break;
+                                break;
+                            case "L":
+                                status.setText("TURNING LEFT");
+                                break;
+                            case "R":
+                                status.setText("TURNING RIGHT");
+                                break;
+                            case "A":
+                                status.setText("CALIBRATING");
+                                break;
+                            case "E":
+                                status.setText("REVERSING");
+                                break;
+                            default:
+                                try {
+                                    int numberOfTimes = Integer.parseInt(statusText);
+                                    if (numberOfTimes == 0)
+                                        status.setText("STOP");
+                                    else if (numberOfTimes == 1)
+                                        status.setText("MOVING FORWARD");
+                                    else
+                                        status.setText("FORWARD " + numberOfTimes + " TIMES");
+                                } catch (NumberFormatException n) {
+                                    Log.d("What", "the f");
+                                }
+                        }
+                        break;
+                }
             }
         }
     }
 
     private void updateMap() {
         Log.d("Pembaharuan", "dimulai");
-        Log.d(mapDescriptor1, mapDescriptor2);
         String mapDescriptor1Raw = MapDecoder.decode(mapDescriptor1, true);
         String mapDescriptor2Raw = MapDecoder.decode(mapDescriptor2, false);
 
@@ -1012,6 +1042,10 @@ public class MainActivity extends AppCompatActivity {
             return this.waypointPosition;
         }
 
+        public int getRobotPosition() {
+            return this.robotPosition;
+        }
+
         public void setWaypointPosition(int position) {
             this.waypointPosition = position;
             ((TextView) findViewById(R.id.waypoint)).setText(getWaypointCoordinate());
@@ -1054,12 +1088,14 @@ public class MainActivity extends AppCompatActivity {
         }
 
         public void updateOrientation(boolean toggle) {
-            if (toggle)
-                orientation = (orientation + 1) % 4;
-            else
-                orientation = (orientation - 1) % 4;
-            ((TextView) findViewById(R.id.robot_position)).setText(getRobotCoordinate());
-            notifyDataSetChanged();
+            synchronized (lock) {
+                if (toggle)
+                    orientation = (orientation + 1) % 4;
+                else
+                    orientation = (orientation - 1) % 4;
+                ((TextView) findViewById(R.id.robot_position)).setText(getRobotCoordinate());
+                notifyDataSetChanged();
+            }
         }
 
         private void markExplored(int position) {

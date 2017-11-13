@@ -4,7 +4,7 @@
 
     <item
         android:id="@+id/action_mode_clear"
-        android:title="Clear Waypoint"
+        android:title="Clear Map"
         app:showAsAction="never"/>
     <item
         android:id="@+id/action_mode_save"

@@ -201,6 +201,7 @@ public class DeviceListFragment extends Fragment {
         scan.setChecked(false);
         startScreen.setVisibility(View.VISIBLE);
         scan.setText("SCAN");
+        toggleSelection(true);
         toggleConnectionMode(true);
     }
 
